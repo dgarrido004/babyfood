@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="theme-color" content="#FFFBF5"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="BabyFood"/>
+<title>BabyFood</title>
+<link rel="manifest" href="manifest.json"/>
+<link rel="apple-touch-icon" href="icons/icon-192.png"/>
+<link rel="canonical" href="https://dgarrido004.github.io/babyfood/"/>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#FFFBF5;
+  --surface:#FFFFFF;
+  --surface2:#FFF5E9;
+  --surface3:#FFF0DC;
+  --text:#2C1A0E;
+  --text2:#7B5B3A;
+  --text3:#B89068;
+  --accent:#E8722A;
+  --accent2:#F5A44A;
+  --accent-light:#FEF0E3;
+  --green:#3DAA6E;
+  --green-light:#E4F5ED;
+  --green-dark:#1D6640;
+  --amber:#F0A500;
+  --amber-light:#FFF3D0;
+  --amber-dark:#7A5000;
+  --red:#D94040;
+  --red-light:#FDEAEA;
+  --red-dark:#7A1A1A;
+  --blue:#4A90D9;
+  --blue-light:#E8F2FC;
+  --border:rgba(44,26,14,0.09);
+  --border2:rgba(44,26,14,0.15);
+  --radius:18px;
+  --radius-sm:12px;
+  --shadow:0 2px 16px rgba(232,114,42,0.10);
+  --shadow-lg:0 8px 32px rgba(232,114,42,0.16);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);font-family:'Nunito',sans-serif;color:var(--text);overflow:hidden;font-size:15px}
+body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:relative}
+
+/* ── Header ── */
+.header{
+  padding:14px 20px 10px;
+  background:var(--bg);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-shrink:0;
+  border-bottom:0.5px solid var(--border);
+}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo{font-size:26px}
+.header-title{font-family:'Quicksand',sans-serif;font-size:20px;font-weight:700;color:var(--accent)}
+.header-sub{font-size:11px;color:var(--text3);font-weight:600;margin-top:-1px}
+.header-chip{
+  background:var(--accent-light);color:var(--accent);
+  font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;
+}
+
+/* ── Scroll area ── */
+.main{flex:1;overflow-y:auto;padding:14px 14px 90px;-webkit-overflow-scrolling:touch}
+
+/* ── Bottom nav ── */
+.nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  background:var(--surface);
+  border-top:0.5px solid var(--border);
+  display:flex;padding:6px 0 max(6px,env(safe-area-inset-bottom));
+  z-index:50;box-shadow:0 -4px 20px rgba(44,26,14,0.06);
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;cursor:pointer;padding:5px 2px;
+  color:var(--text3);transition:color .2s;position:relative;
+}
+.nav-btn.active{color:var(--accent)}
+.nav-btn.active .nav-icon{transform:scale(1.1)}
+.nav-icon{font-size:20px;line-height:1;transition:transform .2s}
+.nav-label{font-size:10px;font-weight:700;letter-spacing:.2px}
+
+/* ── Screens ── */
+.screen{display:none}.screen.active{display:block}
+
+/* ── Cards ── */
+.card{
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius);padding:16px;margin-bottom:12px;
+  box-shadow:var(--shadow);
+}
+.card-title{
+  font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:6px;
+}
+
+/* ── Stats ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{
+  background:var(--surface);border:0.5px solid var(--border);
+  border-radius:var(--radius-sm);padding:10px 8px;text-align:center;
+  box-shadow:var(--shadow);
+}
+.stat-n{font-size:24px;font-weight:800;color:var(--accent);font-family:'Quicksand',sans-serif}
+.stat-l{font-size:10px;font-weight:700;color:var(--text3);margin-top:1px}
+
+/* ── Badges ── */
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px}
+.b-safe{background:var(--green-light);color:var(--green-dark)}
+.b-allergen{background:var(--amber-light);color:var(--amber-dark)}
+.b-reaction{background:var(--red-light);color:var(--red-dark)}
+.b-normal{background:var(--blue-light);color:var(--blue)}
+.b-gray{background:var(--surface2);color:var(--text2)}
+
+/* ── Food rows ── */
+.food-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:9px 0;border-bottom:0.5px solid var(--border);
+}
+.food-row:last-child{border-bottom:none}
+.food-name{font-size:14px;font-weight:600}
+.food-meta{font-size:11px;color:var(--text3);margin-top:1px}
+.food-actions{display:flex;gap:5px;align-items:center;flex-shrink:0;margin-left:8px}
+
+/* ── Buttons ── */
+.btn{
+  border:1.5px solid var(--border2);background:transparent;
+  border-radius:var(--radius-sm);padding:8px 14px;
+  font-size:13px;font-weight:700;font-family:'Nunito',sans-serif;
+  cursor:pointer;color:var(--text);transition:all .15s;
+}
+.btn:active{transform:scale(.96)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-primary:active{background:#cc5e1f}
+.btn-success{background:var(--green);border-color:var(--green);color:#fff}
+.btn-danger{border-color:var(--red);color:var(--red)}
+.btn-amber{background:var(--amber);border-color:var(--amber);color:#fff}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:8px;border-width:1px}
+.btn-full{width:100%;padding:12px;font-size:14px;border-radius:var(--radius);margin-bottom:8px}
+.btn-dashed{border-style:dashed;color:var(--text3)}
+
+/* ── Inputs ── */
+input[type=text],input[type=date],select,textarea{
+  width:100%;border:1.5px solid var(--border2);border-radius:var(--radius-sm);
+  padding:10px 12px;font-size:14px;font-family:'Nunito',sans-serif;font-weight:600;
+  background:var(--surface);color:var(--text);outline:none;transition:border-color .2s;
+  -webkit-appearance:none;
+}
+input:focus,select:focus{border-color:var(--accent)}
+.field{margin-bottom:10px}
+.field-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.input-row{display:flex;gap:8px}
+.input-row>*{flex:1}
+
+/* ── Category headers ── */
+.cat-header{
+  font-size:12px;font-weight:700;color:var(--text2);
+  padding:8px 0 4px;display:flex;align-items:center;gap:5px;
+  border-top:0.5px solid var(--border);margin-top:4px;
+}
+.cat-header:first-child{border-top:none;margin-top:0}
+
+/* ── Progress bar ── */
+.prog-wrap{height:4px;border-radius:2px;background:var(--border);margin-top:5px;overflow:hidden;width:100px}
+.prog-fill{height:100%;background:var(--amber);border-radius:2px;transition:width .4s}
+
+/* ── Tags ── */
+.tag-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:28px}
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--surface2);border:1px solid var(--border);
+  padding:4px 10px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text2);
+}
+.tag-x{cursor:pointer;color:var(--text3);font-size:15px;line-height:1}
+
+/* ── Calendar ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-month{font-size:17px;font-weight:800;font-family:'Quicksand',sans-serif}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal-dh{text-align:center;font-size:10px;font-weight:700;color:var(--text3);padding:3px 0}
+.cal-cell{
+  aspect-ratio:1;border-radius:10px;border:1px solid transparent;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;position:relative;background:var(--surface2);transition:all .15s;
+}
+.cal-cell:active{transform:scale(.93)}
+.cal-cell.today{border-color:var(--accent);border-width:2px}
+.cal-cell.c-normal{background:var(--blue-light)}
+.cal-cell.c-allergen{background:var(--amber-light)}
+.cal-cell.c-reaction{background:var(--red-light)}
+.cal-cell.c-empty{background:transparent;border:none;cursor:default}
+.cal-cell.c-past{opacity:.55}
+.cnum{font-size:11px;font-weight:700;color:var(--text)}
+.cdot{width:5px;height:5px;border-radius:50%;background:var(--accent);margin-top:1px}
+.ctype{font-size:7px;font-weight:700;color:var(--text3);line-height:1}
+
+/* ── Block cards ── */
+.block-card{
+  border-radius:var(--radius);padding:14px;margin-bottom:10px;
+  border:0.5px solid var(--border);
+}
+.block-normal{background:var(--blue-light)}
+.block-allergen{background:var(--amber-light)}
+.block-title{font-size:14px;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.block-dates{font-size:11px;color:var(--text3);font-weight:600;margin-bottom:8px}
+.block-foods{display:flex;flex-wrap:wrap;gap:5px}
+.block-food-tag{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:4px 10px;border-radius:20px;font-size:12px;font-weight:700;
+  background:rgba(255,255,255,0.7);
+}
+.block-food-new{background:var(--accent);color:#fff}
+
+/* ── Modal ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);
+  display:flex;align-items:flex-end;justify-content:center;
+  z-index:200;opacity:0;pointer-events:none;transition:opacity .25s;
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-sheet{
+  background:var(--surface);border-radius:24px 24px 0 0;
+  padding:20px 18px max(20px,env(safe-area-inset-bottom));
+  width:100%;max-width:480px;max-height:88vh;overflow-y:auto;
+  transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+.modal-overlay.open .modal-sheet{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 16px}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:14px;font-family:'Quicksand',sans-serif}
+.divider{height:.5px;background:var(--border);margin:14px 0}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:20px 12px;color:var(--text3);font-size:13px;font-weight:600}
+.empty-icon{font-size:30px;display:block;margin-bottom:6px}
+
+/* ── Info box ── */
+.info-box{
+  border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;font-weight:600;
+  margin-bottom:10px;line-height:1.5;
+}
+.info-amber{background:var(--amber-light);color:var(--amber-dark)}
+.info-green{background:var(--green-light);color:var(--green-dark)}
+.info-red{background:var(--red-light);color:var(--red-dark)}
+.info-blue{background:var(--blue-light);color:var(--blue)}
+
+/* ── Section title ── */
+.section-title{font-size:13px;font-weight:800;color:var(--text2);margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">🍼</div>
+    <div>
+      <div class="header-title">BabyFood</div>
+      <div class="header-sub">Diario de alimentación</div>
+    </div>
+  </div>
+  <div class="header-chip" id="header-chip">Cargando...</div>
+</div>
+
+<div class="main" id="main-scroll">
+
+  <!-- ALIMENTOS -->
+  <div class="screen active" id="screen-alimentos">
+    <div class="stats-row" id="stats-alimentos"></div>
+
+    <!-- Alimentos seguros -->
+    <div class="card">
+      <div class="card-title">✅ Alimentos seguros</div>
+      <div id="safe-list"></div>
+      <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-safe')">+ Añadir alimento seguro</button>
+    </div>
+
+    <!-- Potencialmente alérgenos -->
+    <div class="card">
+      <div class="card-title">⚠️ Potencialmente alérgenos</div>
+      <div id="allergen-pool-list"></div>
+      <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-allergen')">+ Añadir alérgeno</button>
+    </div>
+
+    <!-- En período de prueba -->
+    <div class="card" id="testing-card">
+      <div class="card-title">⏳ En período de prueba (3 días)</div>
+      <div id="testing-list"></div>
+    </div>
+
+    <!-- Reacciones -->
+    <div class="card">
+      <div class="card-title">🚫 Reacciones</div>
+      <div id="reactions-list"></div>
+      <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-reaction')">+ Añadir reacción manualmente</button>
+    </div>
+  </div>
+
+  <!-- PLAN -->
+  <div class="screen" id="screen-plan">
+    <div id="plan-content"></div>
+  </div>
+
+  <!-- CALENDARIO -->
+  <div class="screen" id="screen-calendario">
+    <div class="card">
+      <div class="cal-nav">
+        <button class="btn btn-sm" onclick="changeMonth(-1)">← Ant</button>
+        <span class="cal-month" id="cal-month-label"></span>
+        <button class="btn btn-sm" onclick="changeMonth(1)">Sig →</button>
+      </div>
+      <div class="cal-grid" id="cal-headers"></div>
+      <div class="cal-grid" id="cal-cells" style="margin-top:4px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <span style="font-size:11px;font-weight:700;color:var(--text3)">Leyenda:</span>
+      <span class="badge b-normal">Bloque normal</span>
+      <span class="badge b-allergen">Bloque alérgeno</span>
+      <span class="badge b-reaction">Reacción</span>
+    </div>
+    <div id="day-detail"></div>
+  </div>
+
+  <!-- COCINA -->
+  <div class="screen" id="screen-cocina">
+    <div id="cocina-content"></div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<nav class="nav">
+  <button class="nav-btn active" id="nav-alimentos" onclick="showScreen('alimentos')">
+    <span class="nav-icon">🥕</span>
+    <span class="nav-label">Alimentos</span>
+  </button>
+  <button class="nav-btn" id="nav-plan" onclick="showScreen('plan')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">Plan</span>
+  </button>
+  <button class="nav-btn" id="nav-calendario" onclick="showScreen('calendario')">
+    <span class="nav-icon">📅</span>
+    <span class="nav-label">Calendario</span>
+  </button>
+  <button class="nav-btn" id="nav-cocina" onclick="showScreen('cocina')">
+    <span class="nav-icon">👩‍🍳</span>
+    <span class="nav-label">Cocina</span>
+  </button>
+</nav>
+
+<!-- MODAL: Añadir alimento seguro -->
+<div class="modal-overlay" id="modal-add-safe">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Añadir alimento seguro</div>
+    <div class="field">
+      <div class="field-label">Nombre</div>
+      <input type="text" id="safe-name" placeholder="Ej: Calabaza"/>
+    </div>
+    <div class="field">
+      <div class="field-label">Categoría</div>
+      <select id="safe-cat">
+        <option value="verdura">🥦 Verduras, hortalizas, cereales y tubérculos</option>
+        <option value="proteina">🍗 Proteínas</option>
+        <option value="fruta">🍎 Frutas</option>
+      </select>
+    </div>
+    <button class="btn btn-full btn-success" onclick="addSafeFood()">Añadir como seguro</button>
+    <button class="btn btn-full" onclick="closeModal('modal-add-safe')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: Añadir alérgeno al pool -->
+<div class="modal-overlay" id="modal-add-allergen">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Añadir alérgeno</div>
+    <div class="info-box info-amber">Los alérgenos se introducen en bloques de 3 días. Si no hay reacción pasan automáticamente a alimentos seguros.</div>
+    <div class="field">
+      <div class="field-label">Selecciona de la lista común</div>
+      <select id="allergen-preset-select">
+        <option value="">Selecciona...</option>
+      </select>
+    </div>
+    <div class="field">
+      <div class="field-label">O escribe uno nuevo</div>
+      <input type="text" id="allergen-custom" placeholder="Nombre del alérgeno..."/>
+    </div>
+    <div class="field">
+      <div class="field-label">Categoría</div>
+      <select id="allergen-cat">
+        <option value="verdura">🥦 Verduras, hortalizas, cereales y tubérculos</option>
+        <option value="proteina">🍗 Proteínas</option>
+        <option value="fruta">🍎 Frutas</option>
+      </select>
+    </div>
+    <button class="btn btn-full btn-amber" onclick="addAllergenToPool()">Añadir a alérgenos</button>
+    <button class="btn btn-full" onclick="closeModal('modal-add-allergen')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: Añadir reacción manual -->
+<div class="modal-overlay" id="modal-add-reaction">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Registrar reacción</div>
+    <div class="field">
+      <div class="field-label">Alimento</div>
+      <select id="reaction-food-select">
+        <option value="">Selecciona alimento...</option>
+      </select>
+    </div>
+    <div style="text-align:center;font-size:12px;color:var(--text3);margin:-4px 0 8px;font-weight:600">— o escribe uno nuevo —</div>
+    <div class="field">
+      <input type="text" id="reaction-food-custom" placeholder="Nombre del alimento..."/>
+    </div>
+    <button class="btn btn-full btn-danger" onclick="addReactionManual()">Registrar reacción</button>
+    <button class="btn btn-full" onclick="closeModal('modal-add-reaction')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: Configurar plan -->
+<div class="modal-overlay" id="modal-setup-plan">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Configurar plan mensual</div>
+    <div class="info-box info-blue">La app generará bloques de 3 días alternando bloque normal y bloque alérgeno durante un mes completo.</div>
+    <div class="field">
+      <div class="field-label">Fecha de inicio</div>
+      <input type="date" id="plan-start-date"/>
+    </div>
+    <button class="btn btn-full btn-primary" onclick="generatePlan()">Generar plan</button>
+    <button class="btn btn-full" onclick="closeModal('modal-setup-plan')">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL: Detalle de bloque -->
+<div class="modal-overlay" id="modal-block-detail">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="block-detail-title"></div>
+    <div id="block-detail-content"></div>
+    <button class="btn btn-full" style="margin-top:8px" onclick="closeModal('modal-block-detail')">Cerrar</button>
+  </div>
+</div>
+
+<!-- MODAL: Día calendario -->
+<div class="modal-overlay" id="modal-day">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-day-title"></div>
+    <div id="modal-day-content"></div>
+    <button class="btn btn-full" style="margin-top:8px" onclick="closeModal('modal-day')">Cerrar</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════
+const DEFAULT_ALLERGENS_LIST = [
+  {name:'Leche de vaca',cat:'proteina'},{name:'Huevo',cat:'proteina'},
+  {name:'Trigo (gluten)',cat:'verdura'},{name:'Soja',cat:'proteina'},
+  {name:'Cacahuete',cat:'proteina'},{name:'Nuez',cat:'fruta'},
+  {name:'Avellana',cat:'fruta'},{name:'Almendra',cat:'fruta'},
+  {name:'Pescado blanco',cat:'proteina'},{name:'Marisco',cat:'proteina'},
+  {name:'Sésamo',cat:'verdura'},{name:'Kiwi',cat:'fruta'},
+  {name:'Melocotón',cat:'fruta'},{name:'Fresa',cat:'fruta'},
+  {name:'Mostaza',cat:'verdura'}
+];
+
+const INITIAL_STATE = {
+  // Pool de alimentos seguros
+  safeFoods: [
+    {name:'Zanahoria',cat:'verdura'},{name:'Calabaza',cat:'verdura'},
+    {name:'Brócoli',cat:'verdura'},{name:'Boniato',cat:'verdura'},
+    {name:'Arroz',cat:'verdura'},{name:'Patata',cat:'verdura'},
+    {name:'Pera',cat:'fruta'},{name:'Manzana',cat:'fruta'},
+    {name:'Plátano',cat:'fruta'},{name:'Pollo',cat:'proteina'},
+    {name:'Pavo',cat:'proteina'}
+  ],
+  // Pool de potencialmente alérgenos (pendientes de probar)
+  allergenPool: [
+    {name:'Leche de vaca',cat:'proteina'},{name:'Huevo',cat:'proteina'},
+    {name:'Trigo (gluten)',cat:'verdura'},{name:'Kiwi',cat:'fruta'},
+    {name:'Fresa',cat:'fruta'},{name:'Pescado blanco',cat:'proteina'},
+    {name:'Nuez',cat:'fruta'},{name:'Cacahuete',cat:'proteina'}
+  ],
+  // En período de prueba activo
+  testing: [],
+  // Reacciones
+  reactions: [],
+  // Bloques generados
+  blocks: [],
+  // Recetas manuales guardadas
+  recipes: [],
+  // Eventos del calendario (notas manuales)
+  calNotes: {},
+};
+
+let S = JSON.parse(JSON.stringify(INITIAL_STATE));
+let calViewDate = new Date();
+let selectedIngredients = [];
+
+function save() { try { localStorage.setItem('bf_v3', JSON.stringify(S)); } catch(e){} }
+function load() {
+  try {
+    const d = localStorage.getItem('bf_v3');
+    if (d) S = {...INITIAL_STATE, ...JSON.parse(d)};
+  } catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function today() { return fmtDate(new Date()); }
+function fmtDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function parseDate(s) {
+  const [y,m,d] = s.split('-');
+  return new Date(parseInt(y), parseInt(m)-1, parseInt(d));
+}
+function addDays(dateStr, n) {
+  const d = parseDate(dateStr);
+  d.setDate(d.getDate() + n);
+  return fmtDate(d);
+}
+function daysBetween(a, b) {
+  return Math.floor((parseDate(b) - parseDate(a)) / 86400000);
+}
+function daysSince(dateStr) { return daysBetween(dateStr, today()); }
+
+const CAT_ICON = {verdura:'🥦', proteina:'🍗', fruta:'🍎'};
+const CAT_LABEL = {verdura:'Verduras, hortalizas, cereales y tubérculos', proteina:'Proteínas', fruta:'Frutas'};
+const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const DAYS_SHORT = ['L','M','X','J','V','S','D'];
+
+function getAllFoods() {
+  // All foods = safe + allergenPool (not yet tested or tested)
+  const all = [...S.safeFoods];
+  S.allergenPool.forEach(a => { if (!all.find(f => f.name === a.name)) all.push(a); });
+  return all;
+}
+
+function isReaction(name) { return S.reactions.some(r => r.name === name); }
+function isSafe(name) { return S.safeFoods.some(f => f.name === name); }
+function isAllergen(name) { return S.allergenPool.some(a => a.name === name); }
+function isTesting(name) { return S.testing.some(t => t.name === name); }
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  document.getElementById('main-scroll').scrollTop = 0;
+  if (name === 'alimentos') renderAlimentos();
+  if (name === 'plan') renderPlan();
+  if (name === 'calendario') renderCalendario();
+  if (name === 'cocina') renderCocina();
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); });
+});
+
+// ═══════════════════════════════════════════
+// SCREEN: ALIMENTOS
+// ═══════════════════════════════════════════
+function renderAlimentos() {
+  renderStatsAlimentos();
+  renderSafeList();
+  renderAllergenPoolList();
+  renderTestingList();
+  renderReactionsList();
+  updateHeaderChip();
+}
+
+function renderStatsAlimentos() {
+  document.getElementById('stats-alimentos').innerHTML = `
+    <div class="stat"><div class="stat-n">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--amber)">${S.allergenPool.length}</div><div class="stat-l">Alérgenos</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>
+  `;
+}
+
+function renderSafeList() {
+  const el = document.getElementById('safe-list');
+  if (!S.safeFoods.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-icon">🌱</span>Aún no hay alimentos seguros</div>';
+    return;
+  }
+  const groups = {verdura:[], proteina:[], fruta:[]};
+  S.safeFoods.forEach(f => (groups[f.cat]||groups.fruta).push(f));
+  let html = '';
+  ['verdura','proteina','fruta'].forEach(cat => {
+    if (!groups[cat].length) return;
+    html += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`;
+    html += groups[cat].map(f => `
+      <div class="food-row">
+        <div><div class="food-name">${f.name}</div></div>
+        <div class="food-actions">
+          <button class="btn btn-sm btn-danger" onclick="markReactionFromSafe('${f.name}')">Reacción</button>
+          <button class="btn btn-sm" onclick="removeSafe('${f.name}')">✕</button>
+        </div>
+      </div>`).join('');
+  });
+  el.innerHTML = html;
+}
+
+function renderAllergenPoolList() {
+  const el = document.getElementById('allergen-pool-list');
+  if (!S.allergenPool.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-icon">🔍</span>No hay alérgenos pendientes</div>';
+    return;
+  }
+  const groups = {verdura:[], proteina:[], fruta:[]};
+  S.allergenPool.forEach(f => (groups[f.cat]||groups.fruta).push(f));
+  let html = '';
+  ['verdura','proteina','fruta'].forEach(cat => {
+    if (!groups[cat].length) return;
+    html += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`;
+    html += groups[cat].map(f => {
+      const testing = S.testing.find(t => t.name === f.name);
+      const days = testing ? Math.min(daysSince(testing.startDate)+1, 3) : 0;
+      const pct = testing ? Math.min(100, Math.round((days/3)*100)) : 0;
+      const done = testing && daysSince(testing.startDate) >= 3;
+      return `<div class="food-row">
+        <div style="flex:1">
+          <div class="food-name">${f.name}</div>
+          ${testing ? `<div class="food-meta">Día ${days}/3 · desde ${testing.startDate}</div>
+            <div class="prog-wrap"><div class="prog-fill" style="width:${pct}%"></div></div>` : ''}
+        </div>
+        <div class="food-actions">
+          ${done ? `<button class="btn btn-sm btn-success" onclick="approveAllergen('${f.name}')">✓ Aprobar</button>` : ''}
+          ${testing ? `<button class="btn btn-sm btn-danger" onclick="markReactionAllergen('${f.name}')">Reacción</button>` : ''}
+          <button class="btn btn-sm" onclick="removeAllergenPool('${f.name}')">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  });
+  el.innerHTML = html;
+}
+
+function renderTestingList() {
+  const el = document.getElementById('testing-list');
+  if (!S.testing.length) {
+    el.innerHTML = '<div class="empty">Ningún alérgeno en prueba ahora mismo</div>';
+    return;
+  }
+  // Testing list is rendered within allergen pool above, so just show count
+  el.innerHTML = `<div class="info-box info-amber">${S.testing.length} alérgeno(s) en prueba actualmente. Puedes ver el progreso en la lista de alérgenos de arriba.</div>`;
+}
+
+function renderReactionsList() {
+  const el = document.getElementById('reactions-list');
+  if (!S.reactions.length) {
+    el.innerHTML = '<div class="empty">Sin reacciones registradas 🎉</div>';
+    return;
+  }
+  el.innerHTML = S.reactions.map(r => `
+    <div class="food-row">
+      <div>
+        <div class="food-name">${r.name}</div>
+        <div class="food-meta">${r.date || ''} · ${CAT_LABEL[r.cat] || 'Sin categoría'}</div>
+      </div>
+      <div class="food-actions">
+        <button class="btn btn-sm btn-success" onclick="retryReaction('${r.name}')">Reintentar</button>
+        <button class="btn btn-sm" onclick="removeReaction('${r.name}')">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function updateHeaderChip() {
+  document.getElementById('header-chip').textContent = S.safeFoods.length + ' seguros';
+}
+
+// ── Alimentos actions ──
+function addSafeFood() {
+  const name = document.getElementById('safe-name').value.trim();
+  const cat = document.getElementById('safe-cat').value;
+  if (!name) { alert('Escribe el nombre del alimento'); return; }
+  if (isSafe(name)) { alert('Ya está en alimentos seguros'); return; }
+  S.safeFoods.push({name, cat});
+  document.getElementById('safe-name').value = '';
+  save(); closeModal('modal-add-safe'); renderAlimentos();
+}
+
+function removeSafe(name) {
+  if (!confirm(`¿Quitar "${name}" de alimentos seguros?`)) return;
+  S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function markReactionFromSafe(name) {
+  if (!confirm(`¿Registrar reacción con "${name}"? Se quitará de alimentos seguros.`)) return;
+  const food = S.safeFoods.find(f => f.name === name);
+  S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function addAllergenToPool() {
+  const preset = document.getElementById('allergen-preset-select').value;
+  const custom = document.getElementById('allergen-custom').value.trim();
+  const cat = document.getElementById('allergen-cat').value;
+  const name = custom || preset;
+  if (!name) { alert('Selecciona o escribe un alérgeno'); return; }
+  if (isAllergen(name)||isSafe(name)||isReaction(name)) { alert('Este alimento ya existe en la app'); return; }
+  S.allergenPool.push({name, cat});
+  document.getElementById('allergen-custom').value = '';
+  document.getElementById('allergen-preset-select').value = '';
+  save(); closeModal('modal-add-allergen'); renderAlimentos();
+}
+
+function removeAllergenPool(name) {
+  if (!confirm(`¿Quitar "${name}" de la lista de alérgenos?`)) return;
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function approveAllergen(name) {
+  const a = S.allergenPool.find(a => a.name === name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  if (!isSafe(name)) S.safeFoods.push({name, cat: a?.cat||'otro'});
+  save(); renderAlimentos();
+}
+
+function markReactionAllergen(name) {
+  if (!confirm(`¿Confirmar reacción con "${name}"? Pasará a Reacciones.`)) return;
+  const a = S.allergenPool.find(a => a.name === name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  if (!isReaction(name)) S.reactions.push({name, cat: a?.cat||'otro', date: today()});
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function addReactionManual() {
+  const sel = document.getElementById('reaction-food-select').value;
+  const custom = document.getElementById('reaction-food-custom').value.trim();
+  const name = custom || sel;
+  if (!name) { alert('Selecciona o escribe un alimento'); return; }
+  // Remove from wherever it is
+  const food = S.safeFoods.find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name);
+  S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
+  document.getElementById('reaction-food-custom').value = '';
+  save(); closeModal('modal-add-reaction'); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function retryReaction(name) {
+  const r = S.reactions.find(r => r.name === name);
+  S.reactions = S.reactions.filter(r => r.name !== name);
+  if (!isAllergen(name)) S.allergenPool.push({name, cat: r?.cat||'otro'});
+  save(); renderAlimentos();
+}
+
+function removeReaction(name) {
+  if (!confirm(`¿Eliminar "${name}" de reacciones?`)) return;
+  S.reactions = S.reactions.filter(r => r.name !== name);
+  save(); renderAlimentos();
+}
+
+function populateReactionFoodSelect() {
+  const sel = document.getElementById('reaction-food-select');
+  const all = getAllFoods().filter(f => !isReaction(f.name));
+  sel.innerHTML = '<option value="">Selecciona alimento...</option>' +
+    all.map(f => `<option>${f.name}</option>`).join('');
+}
+
+function populateAllergenPresetSelect() {
+  const sel = document.getElementById('allergen-preset-select');
+  const used = new Set([
+    ...S.safeFoods.map(f=>f.name),
+    ...S.allergenPool.map(a=>a.name),
+    ...S.reactions.map(r=>r.name)
+  ]);
+  sel.innerHTML = '<option value="">Selecciona...</option>' +
+    DEFAULT_ALLERGENS_LIST.filter(a => !used.has(a.name))
+      .map(a => `<option value="${a.name}">${a.name}</option>`).join('');
+}
+
+// Populate category on allergen preset change
+document.getElementById('allergen-preset-select').addEventListener('change', function() {
+  const found = DEFAULT_ALLERGENS_LIST.find(a => a.name === this.value);
+  if (found) document.getElementById('allergen-cat').value = found.cat;
+});
+
+// ═══════════════════════════════════════════
+// PLAN GENERATION
+// ═══════════════════════════════════════════
+function generatePlan() {
+  const startStr = document.getElementById('plan-start-date').value;
+  if (!startStr) { alert('Elige una fecha de inicio'); return; }
+
+  const blocks = [];
+  let currentDate = startStr;
+  let blockType = 'normal'; // alternates normal/allergen
+
+  // Generate ~30 days = 10 blocks
+  for (let i = 0; i < 10; i++) {
+    const endDate = addDays(currentDate, 2);
+    const recipe = buildRecipe(blockType, blocks);
+    if (!recipe) break; // not enough foods
+
+    blocks.push({
+      id: i,
+      type: blockType,
+      startDate: currentDate,
+      endDate: endDate,
+      foods: recipe.foods,
+      newFood: recipe.newFood,
+      completed: false,
+      reactionFood: null
+    });
+
+    // If allergen block and no reaction assumed at generation time,
+    // the allergen will be marked safe after block ends
+    currentDate = addDays(endDate, 1);
+    blockType = blockType === 'normal' ? 'allergen' : 'normal';
+  }
+
+  S.blocks = blocks;
+  save();
+  closeModal('modal-setup-plan');
+  renderPlan();
+  renderCalendario();
+}
+
+function buildRecipe(type, existingBlocks) {
+  // Need: 2 verdura, 1 proteina, 1 fruta
+  // 3 from safe, 1 new
+  // new: if normal → from safe pool not yet safe; if allergen → from allergenPool
+  
+  const usedNewFoods = new Set(existingBlocks.map(b => b.newFood));
+
+  // Get safe foods by category
+  const safeVerdura = S.safeFoods.filter(f => f.cat === 'verdura' && !isReaction(f.name));
+  const safeProteina = S.safeFoods.filter(f => f.cat === 'proteina' && !isReaction(f.name));
+  const safeFreuta = S.safeFoods.filter(f => f.cat === 'fruta' && !isReaction(f.name));
+
+  if (safeVerdura.length < 2 && safeVerdura.length + safeProteina.length + safeFreuta.length < 3) return null;
+
+  // Pick 3 safe foods (2 verdura, 1 proteina, 1 fruta) - pick 3 total
+  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function pickUnused(arr, used) {
+    const avail = arr.filter(f => !used.has(f.name));
+    return avail.length ? pick(avail) : pick(arr);
+  }
+
+  const usedSafe = new Set();
+  const safePicks = [];
+
+  // 2 verdura
+  const v1 = pickUnused(safeVerdura.length ? safeVerdura : S.safeFoods, usedSafe);
+  if (v1) { safePicks.push(v1); usedSafe.add(v1.name); }
+  const v2 = pickUnused(safeVerdura.filter(f=>!usedSafe.has(f.name)).length ? 
+    safeVerdura : S.safeFoods, usedSafe);
+  if (v2 && v2.name !== v1?.name) { safePicks.push(v2); usedSafe.add(v2.name); }
+  else if (safePicks.length < 2 && S.safeFoods.filter(f=>!usedSafe.has(f.name)).length) {
+    const vx = pickUnused(S.safeFoods, usedSafe);
+    if (vx) { safePicks.push(vx); usedSafe.add(vx.name); }
+  }
+
+  // 1 proteina
+  const p1 = pickUnused(safeProteina.length ? safeProteina : S.safeFoods, usedSafe);
+  if (p1) { safePicks.push(p1); usedSafe.add(p1.name); }
+
+  // If we don't have 3 safe foods, fill from general safe
+  while (safePicks.length < 3 && S.safeFoods.filter(f=>!usedSafe.has(f.name)).length > 0) {
+    const fx = pickUnused(S.safeFoods, usedSafe);
+    if (fx) { safePicks.push(fx); usedSafe.add(fx.name); }
+    else break;
+  }
+
+  if (safePicks.length < 3) return null;
+
+  // Pick new food
+  let newFood = null;
+  if (type === 'allergen') {
+    const available = S.allergenPool.filter(a => !usedNewFoods.has(a.name) && !isReaction(a.name));
+    if (available.length) newFood = pick(available);
+    else {
+      // reuse allergen pool
+      const any = S.allergenPool.filter(a => !isReaction(a.name));
+      if (any.length) newFood = pick(any);
+    }
+  } else {
+    // normal: food not in safe and not allergen
+    const allFoods = getAllFoods().filter(f => 
+      !isSafe(f.name) && !isAllergen(f.name) && !isReaction(f.name) && !usedNewFoods.has(f.name)
+    );
+    if (allFoods.length) newFood = pick(allFoods);
+    else {
+      // Use a safe food that hasn't been new yet as a repeat
+      newFood = pick(S.safeFoods.filter(f=>!isReaction(f.name)));
+    }
+  }
+
+  if (!newFood) {
+    // fallback: pick from safe
+    newFood = pick(S.safeFoods.filter(f=>!isReaction(f.name))) || safePicks[0];
+  }
+
+  // Ensure fruta is covered — swap one safe pick or add fruta if missing
+  const hasFruta = safePicks.some(f => f.cat === 'fruta') || newFood?.cat === 'fruta';
+  if (!hasFruta && safeFreuta.length) {
+    safePicks[safePicks.length - 1] = pick(safeFreuta);
+  }
+
+  return {
+    foods: safePicks,
+    newFood
+  };
+}
+
+function rebuildFutureBlocks() {
+  if (!S.blocks.length) return;
+  const tod = today();
+  // Find first future block
+  const futureIdx = S.blocks.findIndex(b => b.endDate >= tod && !b.completed);
+  if (futureIdx === -1) return;
+
+  const keepBlocks = S.blocks.slice(0, futureIdx);
+  const nextStart = futureIdx > 0 ? addDays(S.blocks[futureIdx-1].endDate, 1) : S.blocks[0].startDate;
+  let currentDate = futureIdx > 0 ? addDays(S.blocks[futureIdx-1].endDate, 1) : S.blocks[futureIdx].startDate;
+  let blockType = futureIdx % 2 === 0 ? 'normal' : 'allergen';
+  const remaining = 10 - keepBlocks.length;
+
+  const newBlocks = [];
+  for (let i = 0; i < remaining; i++) {
+    const endDate = addDays(currentDate, 2);
+    const recipe = buildRecipe(blockType, [...keepBlocks, ...newBlocks]);
+    if (!recipe) break;
+    newBlocks.push({
+      id: keepBlocks.length + i,
+      type: blockType,
+      startDate: currentDate,
+      endDate,
+      foods: recipe.foods,
+      newFood: recipe.newFood,
+      completed: false,
+      reactionFood: null
+    });
+    currentDate = addDays(endDate, 1);
+    blockType = blockType === 'normal' ? 'allergen' : 'normal';
+  }
+
+  S.blocks = [...keepBlocks, ...newBlocks];
+  save();
+}
+
+// Auto-complete allergen blocks
+function checkBlockCompletions() {
+  const tod = today();
+  S.blocks.forEach(b => {
+    if (!b.completed && b.type === 'allergen' && b.endDate < tod && !b.reactionFood) {
+      // Auto approve allergen
+      if (b.newFood && isAllergen(b.newFood.name)) {
+        approveAllergenSilent(b.newFood.name);
+      }
+      b.completed = true;
+    }
+    if (!b.completed && b.type === 'normal' && b.endDate < tod) {
+      b.completed = true;
+    }
+  });
+  save();
+}
+
+function approveAllergenSilent(name) {
+  const a = S.allergenPool.find(a => a.name === name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  if (!isSafe(name)) S.safeFoods.push({name, cat: a?.cat||'otro'});
+}
+
+// ═══════════════════════════════════════════
+// SCREEN: PLAN
+// ═══════════════════════════════════════════
+function renderPlan() {
+  checkBlockCompletions();
+  const el = document.getElementById('plan-content');
+
+  if (!S.blocks.length) {
+    el.innerHTML = `
+      <div class="card" style="text-align:center;padding:24px">
+        <div style="font-size:40px;margin-bottom:12px">📋</div>
+        <div style="font-size:16px;font-weight:800;margin-bottom:6px">Sin plan generado</div>
+        <div style="font-size:13px;color:var(--text3);margin-bottom:16px">Genera un plan mensual para ver los bloques de alimentación del bebé</div>
+        <button class="btn btn-primary btn-full" onclick="openSetupPlan()">Generar plan mensual</button>
+      </div>`;
+    return;
+  }
+
+  const tod = today();
+  const currentBlock = S.blocks.find(b => b.startDate <= tod && b.endDate >= tod);
+
+  let html = '';
+
+  if (currentBlock) {
+    html += renderCurrentBlockCard(currentBlock);
+  }
+
+  html += `<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px">
+    <div class="section-title" style="margin:0">Todos los bloques</div>
+    <button class="btn btn-sm btn-primary" onclick="openSetupPlan()">Regenerar</button>
+  </div>`;
+
+  S.blocks.forEach(b => {
+    const isPast = b.endDate < tod;
+    const isCurrent = b.startDate <= tod && b.endDate >= tod;
+    const cls = b.type === 'allergen' ? 'block-allergen' : 'block-normal';
+    const typeLabel = b.type === 'allergen' ? '⚠️ Bloque alérgeno' : '🔵 Bloque normal';
+    const statusBadge = isPast ? '<span class="badge b-gray">Completado</span>' : 
+                        isCurrent ? '<span class="badge b-safe">Actual</span>' : '';
+
+    html += `<div class="block-card ${cls}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.7':''}">
+      <div class="block-title">${typeLabel} ${statusBadge}</div>
+      <div class="block-dates">📅 ${formatDateRange(b.startDate, b.endDate)}</div>
+      <div class="block-foods">
+        ${b.foods.map(f => `<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}</span>`).join('')}
+        ${b.newFood ? `<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>` : ''}
+      </div>
+      ${b.reactionFood ? `<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${b.reactionFood}</span></div>` : ''}
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function renderCurrentBlockCard(b) {
+  const tod = today();
+  const dayNum = daysBetween(b.startDate, tod) + 1;
+  const cls = b.type === 'allergen' ? 'block-allergen' : 'block-normal';
+  return `<div class="card" style="border:2px solid var(--accent)">
+    <div class="card-title">📍 Bloque actual — Día ${dayNum} de 3</div>
+    <div style="font-size:14px;font-weight:800;margin-bottom:4px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'}</div>
+    <div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:12px">${formatDateRange(b.startDate, b.endDate)}</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍲 PURÉ DE MEDIODÍA</div>
+      <div class="block-foods">
+        ${b.foods.filter(f=>f.cat!=='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}</span>`).join('')}
+        ${b.newFood && b.newFood.cat !== 'fruta' ? `<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>` : ''}
+      </div>
+    </div>
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍎 FRUTA DE TARDE</div>
+      <div class="block-foods">
+        ${b.foods.filter(f=>f.cat==='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]} ${f.name}</span>`).join('')}
+        ${b.newFood && b.newFood.cat === 'fruta' ? `<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>` : ''}
+      </div>
+    </div>
+    ${b.type==='allergen'&&b.newFood?`<div class="info-box info-amber" style="margin-top:12px;margin-bottom:0">Alérgeno en prueba: <strong>${b.newFood.name}</strong>. Si no hay reacción al final del bloque, pasará a alimentos seguros automáticamente.</div>`:''}
+    <button class="btn btn-sm btn-danger" style="margin-top:12px;width:100%" onclick="openReactionForBlock(${b.id})">Registrar reacción en este bloque</button>
+  </div>`;
+}
+
+function openSetupPlan() {
+  document.getElementById('plan-start-date').value = today();
+  openModal('modal-setup-plan');
+}
+
+function openBlockDetail(id) {
+  const b = S.blocks.find(b => b.id === id);
+  if (!b) return;
+  document.getElementById('block-detail-title').textContent =
+    (b.type === 'allergen' ? '⚠️ Bloque alérgeno' : '🔵 Bloque normal');
+  
+  let html = `<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate, b.endDate)}</div>`;
+  html += `<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍲 PURÉ DE MEDIODÍA</div>
+    <div class="block-foods" style="margin-bottom:12px">
+      ${b.foods.filter(f=>f.cat!=='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}</span>`).join('')}
+      ${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${b.newFood.name} (nuevo)</span>`:''}
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍎 FRUTA DE TARDE</div>
+    <div class="block-foods" style="margin-bottom:12px">
+      ${b.foods.filter(f=>f.cat==='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]} ${f.name}</span>`).join('')}
+      ${b.newFood&&b.newFood.cat==='fruta'?`<span class="block-food-tag block-food-new">✨ ${b.newFood.name} (nuevo)</span>`:''}
+    </div>`;
+
+  if (b.reactionFood) {
+    html += `<div class="info-box info-red">Reacción registrada: <strong>${b.reactionFood}</strong></div>`;
+  }
+
+  if (!b.completed && b.endDate >= today()) {
+    html += `<button class="btn btn-full btn-danger" onclick="openReactionForBlock(${b.id});closeModal('modal-block-detail')">Registrar reacción</button>`;
+  }
+
+  document.getElementById('block-detail-content').innerHTML = html;
+  openModal('modal-block-detail');
+}
+
+function openReactionForBlock(blockId) {
+  const b = S.blocks.find(b => b.id === blockId);
+  if (!b) return;
+  const foods = [...b.foods, ...(b.newFood ? [b.newFood] : [])];
+  const opts = foods.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+  
+  document.getElementById('block-detail-title').textContent = '🚫 Registrar reacción';
+  document.getElementById('block-detail-content').innerHTML = `
+    <div class="info-box info-red">¿Con qué alimento hubo reacción?</div>
+    <select id="reaction-block-food" style="margin-bottom:12px"><option value="">Selecciona...</option>${opts}</select>
+    <button class="btn btn-full btn-danger" onclick="confirmBlockReaction(${blockId})">Confirmar reacción</button>`;
+  openModal('modal-block-detail');
+}
+
+function confirmBlockReaction(blockId) {
+  const name = document.getElementById('reaction-block-food').value;
+  if (!name) { alert('Selecciona un alimento'); return; }
+  const b = S.blocks.find(b => b.id === blockId);
+  if (!b) return;
+  b.reactionFood = name;
+
+  // Move food to reactions
+  const food = S.safeFoods.find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name) || b.foods.find(f=>f.name===name) || b.newFood;
+  S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  S.allergenPool = S.allergenPool.filter(a => a.name !== name);
+  S.testing = S.testing.filter(t => t.name !== name);
+  if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
+
+  save();
+  closeModal('modal-block-detail');
+  rebuildFutureBlocks();
+  renderPlan();
+  renderAlimentos();
+}
+
+function formatDateRange(start, end) {
+  const s = parseDate(start);
+  const e = parseDate(end);
+  return `${s.getDate()} ${MONTHS[s.getMonth()].slice(0,3)} — ${e.getDate()} ${MONTHS[e.getMonth()].slice(0,3)} ${e.getFullYear()}`;
+}
+
+// ═══════════════════════════════════════════
+// SCREEN: CALENDARIO
+// ═══════════════════════════════════════════
+function renderCalendario() {
+  checkBlockCompletions();
+  const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
+  document.getElementById('cal-month-label').textContent = MONTHS[m] + ' ' + y;
+
+  // Headers
+  document.getElementById('cal-headers').innerHTML = DAYS_SHORT.map(d =>
+    `<div class="cal-dh">${d}</div>`).join('');
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const offset = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const tod = today();
+
+  let cells = '';
+  for (let i = 0; i < offset; i++) cells += '<div class="cal-cell c-empty"></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const block = S.blocks.find(b => b.startDate <= ds && b.endDate >= ds);
+    const hasReaction = block?.reactionFood && block.startDate <= ds && block.endDate >= ds;
+    const note = S.calNotes[ds];
+
+    let cls = 'cal-cell';
+    if (ds === tod) cls += ' today';
+    if (ds < tod) cls += ' c-past';
+    if (hasReaction) cls += ' c-reaction';
+    else if (block?.type === 'allergen') cls += ' c-allergen';
+    else if (block?.type === 'normal') cls += ' c-normal';
+
+    const dot = note ? '<div class="cdot"></div>' : '';
+    const dayLabel = block ? `<div class="ctype">${block.type==='allergen'?'ALG':'NOR'}</div>` : '';
+
+    cells += `<div class="${cls}" onclick="openDayModal('${ds}')">
+      <span class="cnum">${d}</span>${dayLabel}${dot}
+    </div>`;
+  }
+  document.getElementById('cal-cells').innerHTML = cells;
+}
+
+function changeMonth(dir) {
+  calViewDate.setMonth(calViewDate.getMonth() + dir);
+  renderCalendario();
+}
+
+function openDayModal(ds) {
+  const d = parseDate(ds);
+  document.getElementById('modal-day-title').textContent =
+    d.getDate() + ' de ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+
+  const block = S.blocks.find(b => b.startDate <= ds && b.endDate >= ds);
+  const note = S.calNotes[ds] || '';
+
+  let html = '';
+  if (block) {
+    const dayNum = daysBetween(block.startDate, ds) + 1;
+    const cls = block.type === 'allergen' ? 'info-amber' : 'info-blue';
+    html += `<div class="info-box ${cls}">
+      ${block.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'} · Día ${dayNum} de 3
+    </div>`;
+    html += `<div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍲 Puré mediodía</div>
+      <div class="block-foods" style="margin-bottom:10px">
+        ${block.foods.filter(f=>f.cat!=='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}</span>`).join('')}
+        ${block.newFood&&block.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${block.newFood.name}</span>`:''}
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍎 Fruta tarde</div>
+      <div class="block-foods" style="margin-bottom:10px">
+        ${block.foods.filter(f=>f.cat==='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]} ${f.name}</span>`).join('')}
+        ${block.newFood&&block.newFood.cat==='fruta'?`<span class="block-food-tag block-food-new">✨ ${block.newFood.name}</span>`:''}
+      </div>`;
+    if (block.reactionFood) {
+      html += `<div class="info-box info-red">🚫 Reacción registrada: <strong>${block.reactionFood}</strong></div>`;
+    }
+  } else {
+    html += '<div class="empty" style="padding:12px 0">No hay bloque programado para este día</div>';
+  }
+
+  html += `<div class="divider"></div>
+    <div class="field-label">Nota del día</div>
+    <textarea id="day-note" rows="2" style="resize:none;margin-top:5px;margin-bottom:10px">${note}</textarea>
+    <button class="btn btn-full btn-primary" onclick="saveNote('${ds}')">Guardar nota</button>`;
+
+  document.getElementById('modal-day-content').innerHTML = html;
+  openModal('modal-day');
+}
+
+function saveNote(ds) {
+  const note = document.getElementById('day-note').value.trim();
+  if (note) S.calNotes[ds] = note;
+  else delete S.calNotes[ds];
+  save(); closeModal('modal-day'); renderCalendario();
+}
+
+// ═══════════════════════════════════════════
+// SCREEN: COCINA
+// ═══════════════════════════════════════════
+function renderCocina() {
+  const el = document.getElementById('cocina-content');
+
+  // Update ingredient picker
+  const picker = document.getElementById('ingredient-picker');
+  if (picker) {
+    picker.innerHTML = '<option value="">Añadir ingrediente...</option>' +
+      S.safeFoods.map(f => `<option value="${f.name}" data-cat="${f.cat}">${CAT_ICON[f.cat]} ${f.name}</option>`).join('');
+  }
+
+  let html = `<div class="card">
+    <div class="card-title">👩‍🍳 Nueva receta</div>
+    <div class="field">
+      <div class="field-label">Nombre de la receta</div>
+      <input type="text" id="recipe-name-input" placeholder="Ej: Puré de calabaza y pollo"/>
+    </div>
+    <div class="field-label">Ingredientes (solo alimentos seguros)</div>
+    <div class="tag-list" id="selected-ingredients"></div>
+    <select id="ingredient-picker" onchange="addIngredient(this)" style="margin-bottom:12px">
+      <option value="">Añadir ingrediente...</option>
+      ${S.safeFoods.map(f=>`<option value="${f.name}" data-cat="${f.cat}">${CAT_ICON[f.cat]} ${f.name}</option>`).join('')}
+    </select>
+    <button class="btn btn-full btn-success" onclick="saveRecipe()">Guardar receta</button>
+  </div>`;
+
+  if (S.recipes.length) {
+    html += '<div class="section-title">📖 Recetas guardadas</div>';
+    html += S.recipes.map((r, i) => `
+      <div style="background:var(--green-light);border-left:3px solid var(--green);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:14px;font-weight:700">${r.name}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px">${r.foods.join(', ')}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${r.date}</div>
+          </div>
+          <button class="btn btn-sm btn-danger" onclick="deleteRecipe(${i})">Borrar</button>
+        </div>
+      </div>`).join('');
+  } else {
+    html += '<div class="empty"><span class="empty-icon">🍳</span>Aún no hay recetas guardadas</div>';
+  }
+
+  el.innerHTML = html;
+  renderSelectedIngredients();
+}
+
+function addIngredient(sel) {
+  const v = sel.value;
+  if (!v || selectedIngredients.find(i => i.name === v)) { sel.value = ''; return; }
+  const cat = sel.options[sel.selectedIndex].dataset.cat;
+  selectedIngredients.push({name: v, cat});
+  sel.value = '';
+  renderSelectedIngredients();
+}
+
+function removeIngredient(name) {
+  selectedIngredients = selectedIngredients.filter(i => i.name !== name);
+  renderSelectedIngredients();
+}
+
+function renderSelectedIngredients() {
+  const el = document.getElementById('selected-ingredients');
+  if (!el) return;
+  el.innerHTML = selectedIngredients.map(i =>
+    `<div class="tag">${CAT_ICON[i.cat]||'🍽'} ${i.name} <span class="tag-x" onclick="removeIngredient('${i.name}')">×</span></div>`
+  ).join('');
+}
+
+function saveRecipe() {
+  const name = document.getElementById('recipe-name-input').value.trim();
+  if (!name || !selectedIngredients.length) { alert('Pon un nombre y al menos un ingrediente'); return; }
+  S.recipes.unshift({name, foods: selectedIngredients.map(i=>i.name), date: today()});
+  document.getElementById('recipe-name-input').value = '';
+  selectedIngredients = [];
+  save(); renderCocina();
+}
+
+function deleteRecipe(i) {
+  if (!confirm('¿Borrar esta receta?')) return;
+  S.recipes.splice(i, 1);
+  save(); renderCocina();
+}
+
+// ═══════════════════════════════════════════
+// MODAL OPENERS WITH PREP
+// ═══════════════════════════════════════════
+document.getElementById('modal-add-reaction').addEventListener('click', function(){}, false);
+// Prep modals before opening
+const origOpenModal = openModal;
+window.openModal = function(id) {
+  if (id === 'modal-add-reaction') populateReactionFoodSelect();
+  if (id === 'modal-add-allergen') populateAllergenPresetSelect();
+  origOpenModal(id);
+};
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+load();
+checkBlockCompletions();
+renderAlimentos();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
