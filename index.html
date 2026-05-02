@@ -52,8 +52,8 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 
 <script>
 'use strict';
-const STORAGE_KEY='bf_v15_clean';
-const OLD_KEYS=['bf_v3','bf_v4','bf_v5','bf_v6','bf_v7','bf_v8','bf_v9','bf_v10'];
+const STORAGE_KEY='bf_v24_clean';
+const OLD_KEYS=['bf_v15_clean','bf_v3','bf_v4','bf_v5','bf_v6','bf_v7','bf_v8','bf_v9','bf_v10'];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -170,7 +170,51 @@ function clearPlanCalendar(){if(!confirm('¿Borrar TODO el plan y calendario? Se
 function resetAllData(){if(!confirm('¿Borrar TODOS los datos?'))return; if(!confirm('¿Seguro? Se perderán alimentos, plan y notas.'))return; S=deepClone(INITIAL_STATE); save(); renderAlimentos(); showScreen('alimentos');}
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`babyfood-backup-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);}
 function importData(input){const file=input.files[0]; if(!file)return; if(!confirm('¿Importar este archivo? Reemplazará los datos actuales.')){input.value='';return;} const r=new FileReader(); r.onload=e=>{try{S={...deepClone(INITIAL_STATE),...JSON.parse(e.target.result)}; ensureState(); save(); renderAlimentos(); alert('Datos importados');}catch(err){alert('Archivo no válido');} input.value='';}; r.readAsText(file);}
-load(); checkBlockCompletions(); renderAlimentos(); renderGuia(); maybeOpenBirthModal();
+
+// Exponer funciones para onclick en todos los navegadores
+Object.assign(window, {
+  activateDairy,
+  addAllergenToPool,
+  addDairyFood,
+  addPendingFood,
+  addReactionManual,
+  addSafeFood,
+  approveAllergen,
+  changeMonth,
+  clearPlanCalendar,
+  closeModal,
+  confirmBlockReaction,
+  copyReport,
+  exportData,
+  generateDateReport,
+  generatePlan,
+  importData,
+  markReactionAllergen,
+  markReactionFromPending,
+  markReactionFromSafe,
+  movePendingToSafe,
+  openBlockDetail,
+  openDayModal,
+  openModal,
+  openReactionForBlock,
+  openReportModal,
+  removeAllergenPool,
+  removeDairy,
+  removePending,
+  removeReaction,
+  removeSafe,
+  resetAllData,
+  retryReaction,
+  saveBabyBirthDate,
+  saveBirthDateFromSettings,
+  saveNote,
+  setShoppingWeek,
+  showScreen,
+  skipBirthDateSetup,
+  toggleGuide
+});
+
+load(); checkBlockCompletions(); renderAlimentos(); renderGuia(); updateHeader();
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 </script>
 </body>
