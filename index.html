@@ -2963,11 +2963,194 @@ function renderShoppingList(){
   return `<div class="card"><div class="card-title">🛒 Lista de compra semanal</div><div class="cal-nav" style="margin-bottom:8px"><button class="btn btn-sm" onclick="setShoppingWeek(-1)">← Semana</button><span style="font-size:12px;font-weight:800;color:var(--text2)">${formatDateRange(w.start,w.end)}</span><button class="btn btn-sm" onclick="setShoppingWeek(1)">Semana →</button></div>${body}</div>`;
 }
 
+
+
+// ═══════════════════════════════════════════
+// V11 FIX: rotación real de fruta diaria
+// ═══════════════════════════════════════════
+function bfV11SafeFruits(){
+  ensureV4State();
+  return (S.safeFoods||[])
+    .filter(f=>f && f.cat==='fruta' && !isReaction(f.name))
+    .map(f=>enrichFood(f));
+}
+function bfV11Name(f){ return typeof f === 'string' ? f : f?.name; }
+function bfV11UniqueByName(list){
+  const seen=new Set();
+  return (list||[]).filter(f=>f && f.name && !seen.has(f.name) && (seen.add(f.name), true));
+}
+function bfV11FruitForAbsoluteDay(ds, avoidNames=new Set()){
+  const fruits=bfV11UniqueByName(bfV11SafeFruits()).filter(f=>!avoidNames.has(f.name));
+  if(!fruits.length) return null;
+  const offset=Math.abs(daysBetween('2020-01-06', ds));
+  return fruits[offset % fruits.length];
+}
+function bfV11ComputeDailyFruits(block){
+  if(!block) return [];
+  const result=[];
+  const newFood=block.newFood ? enrichFood(block.newFood) : null;
+
+  // ÚNICA excepción: fruta nueva alérgena pendiente -> se mantiene 3 días.
+  if(newFood && newFood.cat==='fruta' && block.type==='allergen' && !isSafe(newFood.name)){
+    return [newFood,newFood,newFood];
+  }
+
+  const avoid=new Set();
+  for(let i=0;i<3;i++){
+    const ds=addDays(block.startDate, i);
+
+    // Si la fruta nueva NO es alérgena, aparece solo el primer día para introducirla,
+    // y los demás días rotan con frutas seguras.
+    if(i===0 && newFood && newFood.cat==='fruta'){
+      result.push(newFood);
+      avoid.add(newFood.name);
+      continue;
+    }
+
+    let fruit=bfV11FruitForAbsoluteDay(ds, avoid);
+    if(!fruit) fruit=bfV11FruitForAbsoluteDay(ds, new Set());
+    if(fruit){
+      result.push(fruit);
+      if(bfV11SafeFruits().length>=3) avoid.add(fruit.name);
+    }
+  }
+
+  while(result.length<3){
+    const fallback=bfV11FruitForAbsoluteDay(addDays(block.startDate,result.length), new Set());
+    if(!fallback) break;
+    result.push(fallback);
+  }
+  return result.slice(0,3);
+}
+function bfV11DailyFruitsAreBad(block){
+  if(!block || !Array.isArray(block.dailyFruits) || block.dailyFruits.length<3) return true;
+  const arr=block.dailyFruits.filter(Boolean).map(enrichFood);
+  const newFood=block.newFood ? enrichFood(block.newFood) : null;
+  if(newFood && newFood.cat==='fruta' && block.type==='allergen' && !isSafe(newFood.name)) return false;
+  const names=arr.map(f=>f.name);
+  // Si los 3 días tienen la misma fruta y hay más de una fruta segura, está mal.
+  return (new Set(names).size===1 && bfV11SafeFruits().length>1);
+}
+function getDailyFruits(block){
+  if(!block) return [];
+  if(!bfV11DailyFruitsAreBad(block)){
+    return block.dailyFruits.slice(0,3).map(enrichFood);
+  }
+  return bfV11ComputeDailyFruits(block);
+}
+function fruitForDate(block, ds){
+  if(!block) return null;
+  const idx=Math.max(0, Math.min(2, daysBetween(block.startDate, ds)));
+  return getDailyFruits(block)[idx] || null;
+}
+function bfV11FixExistingBlocks(){
+  ensureV4State();
+  let changed=false;
+  (S.blocks||[]).forEach(b=>{
+    // La fruta ya no debe ir fija dentro de foods. Se gestiona por dailyFruits.
+    const originalLen=(b.foods||[]).length;
+    b.foods=(b.foods||[]).filter(f=>f && f.cat!=='fruta').map(enrichFood);
+    if(b.foods.length!==originalLen) changed=true;
+    if(bfV11DailyFruitsAreBad(b)){
+      b.dailyFruits=bfV11ComputeDailyFruits(b);
+      changed=true;
+    }
+  });
+  if(changed) save();
+}
+
+function buildRecipe(type, existingBlocks, startDate){
+  ensureV4State();
+  const usedNew=v10UsedNewFoodNames ? v10UsedNewFoodNames(existingBlocks) : new Set((existingBlocks||[]).map(b=>bfV11Name(b.newFood)).filter(Boolean));
+  const safe=(S.safeFoods||[]).filter(f=>f && !isReaction(f.name)).map(enrichFood);
+  const safeVerd=safe.filter(f=>f.cat==='verdura');
+  const safeProt=safe.filter(f=>f.cat==='proteina');
+  if(safeVerd.length<2 || safeProt.length<1) return null;
+
+  let actualType=type;
+  let newFood=null;
+
+  if(actualType==='allergen'){
+    const allergens=(typeof v10OrderAllergens==='function' ? v10OrderAllergens((S.allergenPool||[]).filter(f=>f && !usedNew.has(f.name) && !isReaction(f.name)).map(enrichFood)) : (S.allergenPool||[]).filter(f=>f && !usedNew.has(f.name) && !isReaction(f.name)).map(enrichFood));
+    if(allergens.length) newFood=allergens[0];
+    else actualType='normal';
+  }
+
+  if(actualType==='normal'){
+    const pending=(S.pendingFoods||[]).filter(f=>f && !usedNew.has(f.name) && !isReaction(f.name)).map(enrichFood);
+    const iron=pending.filter(f=>f.ironRich);
+    newFood=(iron.length?iron:pending)[0] || null;
+  }
+
+  const lunch=[];
+  const usedLunch=new Set();
+  function addLunch(f){ if(f && !usedLunch.has(f.name)){ lunch.push(enrichFood(f)); usedLunch.add(f.name); } }
+
+  let needVerd=2, needProt=1;
+  if(newFood && newFood.cat==='verdura'){ addLunch(newFood); needVerd--; }
+  if(newFood && newFood.cat==='proteina'){ addLunch(newFood); needProt--; }
+
+  const pickFrom=(arr)=>{
+    const avail=arr.filter(f=>!usedLunch.has(f.name));
+    const source=avail.length?avail:arr;
+    const iron=source.filter(f=>f.ironRich);
+    return (iron.length?iron:source)[0] || null;
+  };
+
+  while(needVerd>0){ const f=pickFrom(safeVerd); if(!f) break; addLunch(f); needVerd--; }
+  while(needProt>0){ const f=pickFrom(safeProt); if(!f) break; addLunch(f); needProt--; }
+
+  if(lunch.filter(f=>f.cat==='verdura').length<2 || lunch.filter(f=>f.cat==='proteina').length<1) return null;
+
+  const tempBlock={type:actualType,startDate:startDate||today(),foods:lunch,newFood:newFood?enrichFood(newFood):null};
+  const dailyFruits=bfV11ComputeDailyFruits(tempBlock);
+  if(dailyFruits.length<3) return null;
+
+  return {foods:lunch,newFood:newFood?enrichFood(newFood):null,dailyFruits,type:actualType};
+}
+
+function createPlanBlocks(startStr, count=10, baseBlocksOverride=null){
+  ensureV4State();
+  const base=baseBlocksOverride ? baseBlocksOverride.slice() : (S.blocks||[]).slice();
+  const blocks=[];
+  let currentDate=startStr;
+  let id=(typeof v10NextId==='function') ? v10NextId(base) : nextBlockId();
+  let blockType=(typeof v10PreviousBlockType==='function') ? v10PreviousBlockType(base,startStr) : 'normal';
+
+  for(let i=0;i<count;i++){
+    const used=v10UsedNewFoodNames ? v10UsedNewFoodNames([...base,...blocks]) : new Set([...base,...blocks].map(b=>bfV11Name(b.newFood)).filter(Boolean));
+    const allergensLeft=(S.allergenPool||[]).some(a=>a && !used.has(a.name) && !isReaction(a.name));
+    if(blockType==='allergen' && !allergensLeft) blockType='normal';
+
+    const endDate=addDays(currentDate,2);
+    let recipe=buildRecipe(blockType,[...base,...blocks],currentDate);
+    if(!recipe && blockType==='allergen') recipe=buildRecipe('normal',[...base,...blocks],currentDate);
+    if(!recipe) break;
+
+    const actualType=recipe.type || blockType;
+    blocks.push({
+      id:id++, type:actualType, startDate:currentDate, endDate,
+      foods:recipe.foods, newFood:recipe.newFood, dailyFruits:recipe.dailyFruits,
+      completed:false, reactionFood:null
+    });
+
+    if(actualType==='allergen' && recipe.newFood && !S.testing.some(t=>t.name===recipe.newFood.name)){
+      S.testing.push({name:recipe.newFood.name, cat:recipe.newFood.cat, startDate:currentDate});
+    }
+
+    currentDate=addDays(endDate,1);
+    const allergensStillLeft=(S.allergenPool||[]).some(a=>a && !v10UsedNewFoodNames([...base,...blocks]).has(a.name) && !isReaction(a.name));
+    blockType=(actualType==='normal' && allergensStillLeft) ? 'allergen' : 'normal';
+  }
+  return blocks;
+}
+
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 load();
 ensureV4State();
+bfV11FixExistingBlocks();
 checkBlockCompletions();
 renderAlimentos();
 maybeOpenBirthModal();
