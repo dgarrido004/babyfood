@@ -253,6 +253,38 @@ input:focus,select:focus{border-color:var(--accent)}
 
 /* ── Section title ── */
 .section-title{font-size:13px;font-weight:800;color:var(--text2);margin:16px 0 8px;display:flex;align-items:center;gap:6px}
+
+
+.guide-item{
+  border:0.5px solid var(--border);
+  border-radius:var(--radius-sm);
+  margin:10px 0;
+  background:var(--surface);
+  overflow:hidden;
+}
+.guide-item summary{
+  cursor:pointer;
+  list-style:none;
+  padding:12px 14px;
+  font-size:14px;
+  font-weight:800;
+  color:var(--text);
+  background:var(--surface2);
+  font-family:'Nunito',sans-serif;
+}
+.guide-item summary::-webkit-details-marker{display:none}
+.guide-item summary::after{content:'+';float:right;color:var(--text3);font-weight:900}
+.guide-item[open] summary::after{content:'−'}
+.guide-body{
+  padding:12px 14px;
+  font-size:13px;
+  line-height:1.65;
+  color:var(--text2);
+}
+.guide-body ul,.guide-body ol{padding-left:20px;margin:8px 0}
+.guide-body li{margin-bottom:5px}
+.guide-body p{margin:7px 0}
+
 </style>
 </head>
 <body>
@@ -349,30 +381,251 @@ input:focus,select:focus{border-color:var(--accent)}
   <!-- GUÍA -->
   <div class="screen" id="screen-guia">
     <div class="card">
-      <div class="card-title">📘 Guía por edad</div>
-      <div class="info-box info-blue">Esta guía resume recomendaciones generales de alimentación complementaria. Si tu pediatra os ha indicado otra pauta, priorizad siempre esa indicación.</div>
-      <div class="section-title">👶 Antes de 6 meses</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7">
-        No se recomienda iniciar alimentación complementaria antes de los 6 meses, salvo indicación expresa del pediatra. La leche materna o fórmula sigue siendo el alimento principal.
-      </div>
-      <div class="section-title">🥄 6–8 meses</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7">
-        Introducción progresiva de alimentos, de uno en uno y dejando varios días para observar tolerancia. Priorizar alimentos ricos en hierro y zinc. No añadir sal, azúcar ni edulcorantes.
-      </div>
-      <div class="section-title">🧀 9–11 meses</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7">
-        Pueden ofrecerse pequeñas cantidades de yogur natural y queso tierno si ya corresponde por edad y la familia quiere introducirlos. La leche materna o fórmula continúa siendo importante.
-      </div>
-      <div class="section-title">🥛 12+ meses</div>
-      <div style="font-size:13px;color:var(--text2);line-height:1.7">
-        A partir de los 12 meses puede introducirse leche entera de vaca, si procede. Evitar alimentos superfluos cuanto más tarde y en menor cantidad, mejor.
-      </div>
+      <div class="card-title">📘 Guía de alimentación complementaria</div>
+      <div class="info-box info-blue">Resumen práctico basado en recomendaciones generales de la AEP. No sustituye la valoración del pediatra. Si vuestro pediatra os ha pautado algo distinto, seguid siempre esa indicación.</div>
+
+      <details class="guide-item" open>
+        <summary>👶 Antes de los 6 meses</summary>
+        <div class="guide-body">
+          <p>La leche materna o la fórmula infantil debe ser el alimento principal. La alimentación complementaria se recomienda alrededor de los 6 meses.</p>
+          <div class="info-box info-amber">Antes de los 6 meses solo debería iniciarse alimentación complementaria si lo indica el pediatra.</div>
+          <ul>
+            <li>No iniciar sólidos por decisión propia antes de tiempo.</li>
+            <li>No sustituir tomas de leche por comida.</li>
+            <li>Si hay indicación médica para empezar antes, usar la app como apoyo, pero siguiendo la pauta concreta del pediatra.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>✅ Señales de que el bebé está preparado</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Muestra interés activo por la comida.</li>
+            <li>Ha desaparecido el reflejo de extrusión, es decir, ya no expulsa automáticamente con la lengua los alimentos no líquidos.</li>
+            <li>Puede coger comida con la mano y llevársela a la boca.</li>
+            <li>Puede mantenerse sentado con apoyo.</li>
+          </ul>
+          <div class="info-box info-blue">No todos los bebés alcanzan estas señales exactamente a la misma edad.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🥣 6–8 meses</summary>
+        <div class="guide-body">
+          <p>Etapa inicial de introducción progresiva.</p>
+          <ul>
+            <li>Introducir alimentos de uno en uno, dejando varios días para observar tolerancia.</li>
+            <li>Priorizar alimentos ricos en hierro y zinc.</li>
+            <li>Ofrecer variedad de frutas, verduras, cereales, tubérculos, legumbres, carne, pollo, pescado, huevo cuando toque, y aceite de oliva.</li>
+            <li>No añadir sal, azúcar ni edulcorantes.</li>
+            <li>La leche sigue siendo el alimento principal.</li>
+            <li>Respetar señales de hambre y saciedad: no forzar cantidades.</li>
+          </ul>
+          <div class="info-box info-green">La app usa bloques de 3 días para ayudar a introducir alimentos nuevos de forma ordenada.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🥩 Hierro y alimentos prioritarios</summary>
+        <div class="guide-body">
+          <p>A partir de los 6 meses aumenta el riesgo de déficit de hierro, por eso conviene incluir alimentos ricos en hierro con frecuencia.</p>
+          <ul>
+            <li>Carne roja.</li>
+            <li>Yema de huevo.</li>
+            <li>Legumbres: lentejas, alubias, guisantes.</li>
+            <li>Pollo, pavo y pescado.</li>
+            <li>Brócoli y algunos cereales o panes enriquecidos.</li>
+          </ul>
+          <div class="info-box info-blue">En la app puedes marcar la etiqueta “hierro” para que esos alimentos tengan prioridad en el plan.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🥜 Alérgenos</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Introducirlos de uno en uno.</li>
+            <li>Observar varios días antes de introducir otro alimento nuevo.</li>
+            <li>Seguir la pauta indicada por el pediatra.</li>
+            <li>Si hay reacción, registrar el alimento y consultar con profesionales sanitarios.</li>
+          </ul>
+          <div class="info-box info-amber">En esta app los alérgenos se trabajan en bloques específicos de 3 días, alternando bloque normal y bloque alérgeno.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🌾 Gluten</summary>
+        <div class="guide-body">
+          <p>La recomendación general es introducir el gluten entre los 4 y los 11 meses, idealmente alrededor del sexto mes, empezando con pequeñas cantidades.</p>
+          <ul>
+            <li>Ejemplos: trigo, pan, pasta, avena o cereales con gluten.</li>
+            <li>Introducirlo poco a poco y observar tolerancia.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🍎 Frutas, verduras y cereales</summary>
+        <div class="guide-body">
+          <ul>
+            <li>No hay frutas o verduras “mejores” para empezar: puede adaptarse a gustos y disponibilidad familiar.</li>
+            <li>Conviene variar sabores y presentaciones: triturado, chafado, grumoso o trozos seguros según edad y madurez.</li>
+            <li>Los zumos no aportan ventajas frente a la fruta entera y pueden desplazar otros alimentos.</li>
+            <li>Los cereales pueden darse como arroz, pan, pasta, avena, quinoa, tortas de maíz, harinas integrales, patata o boniato.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🧀 9–11 meses</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Puede ofrecerse yogur natural sin azúcar en pequeñas cantidades.</li>
+            <li>Puede ofrecerse queso tierno en pequeñas cantidades.</li>
+            <li>La leche materna o fórmula continúa siendo importante.</li>
+          </ul>
+          <div class="info-box info-amber">La leche de vaca entera como bebida principal debe esperar hasta los 12 meses.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🥛 12 meses o más</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Puede introducirse leche de vaca entera si procede.</li>
+            <li>Puede ir comiendo cada vez más parecido al resto de la familia, adaptando textura y seguridad.</li>
+            <li>Seguir evitando exceso de sal, azúcar y alimentos superfluos.</li>
+            <li>Evitar alimentos duros, redondos o con riesgo de atragantamiento.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🍽️ Texturas y forma de ofrecer</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Aumentar progresivamente la consistencia.</li>
+            <li>Introducir texturas grumosas y semisólidas lo antes posible, sin retrasarlo más allá de los 8–9 meses si el bebé está preparado.</li>
+            <li>El bebé debe comer sentado, tranquilo y supervisado.</li>
+            <li>Evitar pantallas y distracciones durante la comida.</li>
+            <li>No usar alimentos como premio, castigo o consuelo.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🚫 Prohibiciones y precauciones</summary>
+        <div class="guide-body">
+          <p><b>No recomendados o a evitar:</b></p>
+          <ul>
+            <li>Miel antes de los 12 meses.</li>
+            <li>Sal añadida.</li>
+            <li>Azúcar añadido y edulcorantes.</li>
+            <li>Zumos si puede tomar fruta entera.</li>
+            <li>Bollería, galletas, cacao, embutidos, charcutería y ultraprocesados.</li>
+          </ul>
+          <p><b>Verduras con nitratos:</b></p>
+          <ul>
+            <li>Espinaca.</li>
+            <li>Acelga.</li>
+            <li>Borraja.</li>
+          </ul>
+          <div class="info-box info-amber">Mejor evitarlas durante el primer año o usarlas solo con mucha prudencia.</div>
+          <p><b>Riesgo de atragantamiento:</b></p>
+          <ul>
+            <li>Frutos secos enteros.</li>
+            <li>Uvas enteras.</li>
+            <li>Palomitas.</li>
+            <li>Zanahoria cruda.</li>
+            <li>Manzana cruda.</li>
+            <li>Salchichas cortadas en rodajas.</li>
+            <li>Trozos duros, redondos o resbaladizos.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🏷️ Etiquetas de alimentos</summary>
+        <div class="guide-body">
+          <ul>
+            <li><b>Hierro:</b> alimentos que conviene priorizar en el plan.</li>
+            <li><b>Látex:</b> alimentos que conviene tener identificados si existe sensibilidad o alergia relacionada.</li>
+          </ul>
+        </div>
+      </details>
     </div>
+
     <div class="card">
-      <div class="card-title" style="color:var(--red)">🚫 Prohibiciones y precauciones</div>
-      <div class="info-box info-red">Evitar miel antes de los 12 meses. Evitar sal y azúcar añadidos. Evitar frutos secos enteros, uvas enteras, palomitas, salchichas en rodajas, manzana o zanahoria cruda por riesgo de atragantamiento.</div>
-      <div class="info-box info-amber">Espinaca, acelga y borraja: evitar durante el primer año por su contenido en nitratos o utilizarlas solo con mucha prudencia.</div>
-      <div class="info-box info-blue">No forzar cantidades: los adultos deciden qué se ofrece y el bebé decide cuánto come.</div>
+      <div class="card-title" style="color:var(--red)">🚨 Qué hacer en caso de atragantamiento</div>
+      <div class="info-box info-red">Guía rápida para bebés menores de 1 año. Ante duda, llama al 112.</div>
+
+      <details class="guide-item" open>
+        <summary>🟢 Si el bebé tose, llora o respira</summary>
+        <div class="guide-body">
+          <p>Es una obstrucción parcial: el bebé está moviendo aire.</p>
+          <ul>
+            <li>Mantén la calma y vigila de cerca.</li>
+            <li>Deja que tosa: la tos es el mecanismo más eficaz para expulsar.</li>
+            <li>No metas los dedos en la boca si no ves claramente el objeto.</li>
+            <li>No le des agua ni comida.</li>
+            <li>No le des golpes si está tosiendo de forma eficaz.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>🔴 Si no puede respirar, no tose o se pone morado</summary>
+        <div class="guide-body">
+          <p>Actúa de inmediato.</p>
+          <ol>
+            <li>Coloca al bebé boca abajo sobre tu antebrazo o muslo, con la cabeza más baja que el cuerpo y sujetando cabeza y mandíbula.</li>
+            <li>Da hasta <b>5 golpes firmes en la espalda</b>, entre los omóplatos, con el talón de la mano.</li>
+            <li>Si no se resuelve, gira al bebé boca arriba manteniendo la cabeza más baja.</li>
+            <li>Da hasta <b>5 compresiones torácicas</b> con dos dedos en el centro del pecho, justo por debajo de la línea de los pezones.</li>
+            <li>Repite el ciclo: <b>5 golpes en espalda → 5 compresiones en pecho</b>.</li>
+          </ol>
+          <div class="info-box info-red">Si la obstrucción no se resuelve rápidamente, llama al <b>112</b> y continúa alternando golpes y compresiones hasta que respire, llegue ayuda o pierda la consciencia.</div>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>💧 Si se atraganta con líquido</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Si tose o respira: incorpora al bebé, para la toma y deja que tosa.</li>
+            <li>No le des más líquido “para que pase”.</li>
+            <li>Si no puede respirar, no llora, no tose o se pone azulado: trátalo como obstrucción completa y llama al 112.</li>
+            <li>Si después queda con dificultad respiratoria, respiración ruidosa, color extraño, decaimiento o tos persistente, consulta de urgencia.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>⚫ Si pierde la consciencia</summary>
+        <div class="guide-body">
+          <div class="info-box info-red"><b>Llama al 112 inmediatamente.</b> Si hay otra persona contigo, que llame mientras tú empiezas maniobras.</div>
+          <ul>
+            <li>Coloca al bebé sobre una superficie firme.</li>
+            <li>Inicia <b>RCP básica</b> si sabes realizarla.</li>
+            <li>Si estás entrenada: 30 compresiones torácicas y 2 ventilaciones, continuando hasta que llegue ayuda o el bebé responda.</li>
+            <li>Antes de ventilar, mira la boca: si ves claramente un objeto, retíralo. No hagas barrido a ciegas con el dedo.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="guide-item">
+        <summary>❌ Nunca hacer</summary>
+        <div class="guide-body">
+          <ul>
+            <li>No meter los dedos a ciegas en la boca.</li>
+            <li>No sacudir al bebé.</li>
+            <li>No darle agua ni otros líquidos.</li>
+            <li>No hacer compresiones abdominales tipo Heimlich en bebés menores de 1 año.</li>
+            <li>No dejarlo solo mientras come.</li>
+          </ul>
+        </div>
+      </details>
     </div>
   </div>
 
