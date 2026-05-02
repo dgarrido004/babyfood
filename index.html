@@ -675,6 +675,7 @@ input:focus,select:focus{border-color:var(--accent)}
       <input type="date" id="baby-birth-date"/>
     </div>
     <button class="btn btn-full btn-primary" onclick="saveBabyBirthDate()">Guardar y empezar</button>
+    <button class="btn btn-full" onclick="skipBirthDateSetup()">Ahora no</button>
   </div>
 </div>
 
@@ -722,6 +723,7 @@ const INITIAL_STATE = {
   lacteosActivated9: false,
   lacteosActivated12: false,
   babyBirthDate: null,
+  birthDateSkipped: false,
   lastTipDate: null,
   allergensMilestoneDate: null,
   shoppingWeekOffset: 0,
@@ -1833,6 +1835,7 @@ function ensureV4State(){
   if(S.lacteosActivated9 === undefined) S.lacteosActivated9 = false;
   if(S.lacteosActivated12 === undefined) S.lacteosActivated12 = false;
   if(S.babyBirthDate === undefined) S.babyBirthDate = null;
+  if(S.birthDateSkipped === undefined) S.birthDateSkipped = false;
   if(S.lastTipDate === undefined) S.lastTipDate = null;
   if(S.allergensMilestoneDate === undefined) S.allergensMilestoneDate = null;
   if(S.shoppingWeekOffset === undefined) S.shoppingWeekOffset = 0;
@@ -1864,10 +1867,17 @@ function isAtLeastMonths(m, dateStr=today()){ return S.babyBirthDate && fullMont
 function saveBabyBirthDate(){
   const v=document.getElementById('baby-birth-date').value;
   if(!v){ alert('Indica la fecha de nacimiento'); return; }
-  S.babyBirthDate=v; save(); closeModal('modal-birthdate'); updateHeaderChip(); renderAlimentos();
+  S.babyBirthDate=v; S.birthDateSkipped=false; save(); closeModal('modal-birthdate'); updateHeaderChip(); renderAlimentos();
+}
+function skipBirthDateSetup(){
+  S.birthDateSkipped = true;
+  save();
+  closeModal('modal-birthdate');
+  updateHeaderChip();
 }
 function maybeOpenBirthModal(){
-  if(!S.babyBirthDate){ setTimeout(()=>openModal('modal-birthdate'), 300); }
+  // Se pregunta al abrir por primera vez, pero sin bloquear el uso de la app para siempre.
+  if(!S.babyBirthDate && !S.birthDateSkipped){ setTimeout(()=>openModal('modal-birthdate'), 300); }
 }
 function maybeShowDailyTip(){ return; }
 
