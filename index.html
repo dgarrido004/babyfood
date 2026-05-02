@@ -3145,12 +3145,92 @@ function createPlanBlocks(startStr, count=10, baseBlocksOverride=null){
   return blocks;
 }
 
+
+
+// ═══════════════════════════════════════════
+// V12 FIX: fruta diaria recalculada siempre por fecha
+// ═══════════════════════════════════════════
+function bfV12SafeFruitPool(){
+  ensureV4State();
+  const seen=new Set();
+  return (S.safeFoods||[])
+    .filter(f=>f && f.cat==='fruta' && !isReaction(f.name))
+    .map(enrichFood)
+    .filter(f=>f.name && !seen.has(f.name) && (seen.add(f.name), true));
+}
+function bfV12CircularFruit(pool, index, avoid=new Set()){
+  if(!pool.length) return null;
+  for(let step=0; step<pool.length; step++){
+    const f=pool[(index+step) % pool.length];
+    if(f && !avoid.has(f.name)) return f;
+  }
+  return pool[index % pool.length] || null;
+}
+function bfV12ComputeDailyFruits(block){
+  if(!block) return [];
+  const pool=bfV12SafeFruitPool();
+  const newFood=block.newFood ? enrichFood(block.newFood) : null;
+
+  // Única excepción: fruta nueva alérgena pendiente = misma fruta durante los 3 días.
+  if(newFood && newFood.cat==='fruta' && block.type==='allergen' && !isSafe(newFood.name)){
+    return [newFood,newFood,newFood];
+  }
+
+  const result=[];
+  const avoid=new Set();
+  const startIndex=Math.abs(daysBetween('2020-01-06', block.startDate || today())) % Math.max(1,pool.length);
+
+  for(let i=0;i<3;i++){
+    // Fruta nueva normal: solo el primer día. No se repite los 3 días.
+    if(i===0 && newFood && newFood.cat==='fruta'){
+      result.push(newFood);
+      avoid.add(newFood.name);
+      continue;
+    }
+    const fruit=bfV12CircularFruit(pool, startIndex+i, pool.length>=3 ? avoid : new Set());
+    if(fruit){
+      result.push(fruit);
+      if(pool.length>=3) avoid.add(fruit.name);
+    }
+  }
+
+  // Fallback solo si hay muy pocas frutas seguras.
+  while(result.length<3 && pool.length){
+    const fruit=pool[result.length % pool.length];
+    result.push(fruit);
+  }
+  return result.slice(0,3).map(enrichFood);
+}
+function getDailyFruits(block){
+  // Importante: no nos fiamos de dailyFruits guardado en localStorage,
+  // porque puede venir de versiones antiguas con Manzana repetida.
+  return bfV12ComputeDailyFruits(block);
+}
+function fruitForDate(block, ds){
+  if(!block) return null;
+  const idx=Math.max(0, Math.min(2, daysBetween(block.startDate, ds)));
+  return getDailyFruits(block)[idx] || null;
+}
+function bfV12NormalizeExistingBlocks(){
+  ensureV4State();
+  let changed=false;
+  (S.blocks||[]).forEach(b=>{
+    const cleanFoods=(b.foods||[]).filter(f=>f && f.cat!=='fruta').map(enrichFood);
+    if(JSON.stringify(cleanFoods)!==JSON.stringify(b.foods||[])) changed=true;
+    b.foods=cleanFoods;
+    b.dailyFruits=bfV12ComputeDailyFruits(b);
+    changed=true;
+  });
+  if(changed) save();
+}
+
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 load();
 ensureV4State();
 bfV11FixExistingBlocks();
+bfV12NormalizeExistingBlocks();
 checkBlockCompletions();
 renderAlimentos();
 maybeOpenBirthModal();
