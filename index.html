@@ -1016,10 +1016,16 @@ function generatePlan() {
 
   const blocks = [];
   let currentDate = startStr;
-  let blockType = 'normal'; // alternates normal/allergen
+  let blockType = 'normal'; // alternates normal/allergen while allergens remain
 
   // Generate ~30 days = 10 blocks
   for (let i = 0; i < 10; i++) {
+    // Si ya no quedan alérgenos pendientes, no se generan más bloques alérgenos.
+    // La app continúa con bloques normales/menú.
+    if (blockType === 'allergen' && !hasAvailableAllergen(blocks)) {
+      blockType = 'normal';
+    }
+
     const endDate = addDays(currentDate, 2);
     const recipe = buildRecipe(blockType, blocks);
     if (!recipe) break; // not enough foods
@@ -1039,12 +1045,6 @@ function generatePlan() {
       S.testing.push({name: recipe.newFood.name, cat: recipe.newFood.cat, startDate: currentDate});
     }
 
-    if (blockType === 'allergen' && recipe.newFood && !S.testing.some(t => t.name === recipe.newFood.name)) {
-      S.testing.push({name: recipe.newFood.name, cat: recipe.newFood.cat, startDate: currentDate});
-    }
-
-    // If allergen block and no reaction assumed at generation time,
-    // the allergen will be marked safe after block ends
     currentDate = addDays(endDate, 1);
     blockType = blockType === 'normal' ? 'allergen' : 'normal';
   }
@@ -1056,84 +1056,101 @@ function generatePlan() {
   renderCalendario();
 }
 
+function getUsedNewFoodNames(existingBlocks) {
+  return new Set((existingBlocks || [])
+    .map(b => typeof b.newFood === 'string' ? b.newFood : b.newFood?.name)
+    .filter(Boolean));
+}
+
+function isEggFood(food) {
+  return normName(food?.name || '').includes('huevo');
+}
+
+function hasAvailableAllergen(existingBlocks) {
+  const usedNewFoods = getUsedNewFoodNames(existingBlocks);
+  return (S.allergenPool || []).some(a => !usedNewFoods.has(a.name) && !isReaction(a.name));
+}
+
+function sortAllergensForIntroduction(list) {
+  // El huevo queda al final salvo que sea el único alérgeno pendiente.
+  return [...list].sort((a, b) => Number(isEggFood(a)) - Number(isEggFood(b)));
+}
+
 function buildRecipe(type, existingBlocks) {
   // Need: 2 verdura, 1 proteina, 1 fruta
-  // 3 from safe, 1 new
-  // new: if normal → from safe pool not yet safe; if allergen → from allergenPool
-  
-  const usedNewFoods = new Set(existingBlocks.map(b => b.newFood));
+  // 3 from safe, 1 new when there are pending foods for that type of block.
+  // Important:
+  // - normal block → newFood must come only from pendingFoods.
+  // - allergen block → newFood must come only from allergenPool.
+  // - newFood must not repeat inside the generated plan.
 
-  // Get safe foods by category
-  const safeVerdura = S.safeFoods.filter(f => f.cat === 'verdura' && !isReaction(f.name));
-  const safeProteina = S.safeFoods.filter(f => f.cat === 'proteina' && !isReaction(f.name));
-  const safeFreuta = S.safeFoods.filter(f => f.cat === 'fruta' && !isReaction(f.name));
+  const usedNewFoods = getUsedNewFoodNames(existingBlocks);
 
-  if (safeVerdura.length < 2 && safeVerdura.length + safeProteina.length + safeFreuta.length < 3) return null;
+  const safeFoods = (S.safeFoods || []).filter(f => !isReaction(f.name));
+  const safeVerdura = safeFoods.filter(f => f.cat === 'verdura');
+  const safeProteina = safeFoods.filter(f => f.cat === 'proteina');
+  const safeFruta = safeFoods.filter(f => f.cat === 'fruta');
 
-  // Pick 3 safe foods (2 verdura, 1 proteina, 1 fruta) - pick 3 total
-  function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-  function pickUnused(arr, used) {
-    const avail = arr.filter(f => !used.has(f.name));
-    return avail.length ? pick(avail) : pick(arr);
+  if (safeFoods.length < 3) return null;
+
+  function weightedPick(arr) {
+    if (!arr || !arr.length) return null;
+    const weighted = [];
+    arr.forEach(f => {
+      const weight = f.ironRich ? 3 : 1;
+      for (let i = 0; i < weight; i++) weighted.push(f);
+    });
+    return weighted[Math.floor(Math.random() * weighted.length)];
   }
+  function pickUnused(arr, used) {
+    const avail = (arr || []).filter(f => !used.has(f.name));
+    return weightedPick(avail.length ? avail : arr);
+  }
+
+  // Pick new food first, so the three safe foods can complete the required categories.
+  let newFood = null;
+  if (type === 'allergen') {
+    const available = sortAllergensForIntroduction((S.allergenPool || [])
+      .filter(a => !usedNewFoods.has(a.name) && !isReaction(a.name)));
+
+    // Nunca rellenar un bloque alérgeno con un alimento normal o seguro.
+    // Si no quedan alérgenos disponibles, el generador debe cambiar a bloque normal.
+    if (!available.length) return null;
+    newFood = available[0];
+  } else {
+    const available = (S.pendingFoods || [])
+      .filter(f => !usedNewFoods.has(f.name) && !isReaction(f.name));
+    newFood = weightedPick(available);
+    // Si no quedan alimentos pendientes, el bloque normal se genera como menú con seguros.
+    // No se marca ningún alimento seguro como "nuevo".
+  }
+
+  const required = {verdura: 2, proteina: 1, fruta: 1};
+  if (newFood && required[newFood.cat] > 0) required[newFood.cat] -= 1;
 
   const usedSafe = new Set();
   const safePicks = [];
 
-  // 2 verdura
-  const v1 = pickUnused(safeVerdura.length ? safeVerdura : S.safeFoods, usedSafe);
-  if (v1) { safePicks.push(v1); usedSafe.add(v1.name); }
-  const v2 = pickUnused(safeVerdura.filter(f=>!usedSafe.has(f.name)).length ? 
-    safeVerdura : S.safeFoods, usedSafe);
-  if (v2 && v2.name !== v1?.name) { safePicks.push(v2); usedSafe.add(v2.name); }
-  else if (safePicks.length < 2 && S.safeFoods.filter(f=>!usedSafe.has(f.name)).length) {
-    const vx = pickUnused(S.safeFoods, usedSafe);
-    if (vx) { safePicks.push(vx); usedSafe.add(vx.name); }
+  function addSafeFrom(cat, count) {
+    const source = cat === 'verdura' ? safeVerdura : cat === 'proteina' ? safeProteina : safeFruta;
+    for (let i = 0; i < count; i++) {
+      const f = pickUnused(source, usedSafe);
+      if (f && !usedSafe.has(f.name)) { safePicks.push(f); usedSafe.add(f.name); }
+    }
   }
 
-  // 1 proteina
-  const p1 = pickUnused(safeProteina.length ? safeProteina : S.safeFoods, usedSafe);
-  if (p1) { safePicks.push(p1); usedSafe.add(p1.name); }
+  addSafeFrom('verdura', required.verdura);
+  addSafeFrom('proteina', required.proteina);
+  addSafeFrom('fruta', required.fruta);
 
-  // If we don't have 3 safe foods, fill from general safe
-  while (safePicks.length < 3 && S.safeFoods.filter(f=>!usedSafe.has(f.name)).length > 0) {
-    const fx = pickUnused(S.safeFoods, usedSafe);
-    if (fx) { safePicks.push(fx); usedSafe.add(fx.name); }
+  // Si faltan seguros por escasez de categoría, rellenar con cualquier seguro no repetido.
+  while (safePicks.length < 3 && safeFoods.some(f => !usedSafe.has(f.name))) {
+    const f = pickUnused(safeFoods, usedSafe);
+    if (f && !usedSafe.has(f.name)) { safePicks.push(f); usedSafe.add(f.name); }
     else break;
   }
 
   if (safePicks.length < 3) return null;
-
-  // Pick new food
-  let newFood = null;
-  if (type === 'allergen') {
-    const available = S.allergenPool.filter(a => !usedNewFoods.has(a.name) && !isReaction(a.name));
-    if (available.length) newFood = pick(available);
-    else {
-      // reuse allergen pool
-      const any = S.allergenPool.filter(a => !isReaction(a.name));
-      if (any.length) newFood = pick(any);
-    }
-  } else {
-    // normal: food from pendingFoods, not yet introduced and not allergen
-    const available = (S.pendingFoods || []).filter(f => !usedNewFoods.has(f.name) && !isReaction(f.name));
-    if (available.length) newFood = pick(available);
-    else {
-      const anyPending = (S.pendingFoods || []).filter(f => !isReaction(f.name));
-      if (anyPending.length) newFood = pick(anyPending);
-    }
-  }
-
-  if (!newFood) {
-    // fallback: pick from safe
-    newFood = pick(S.safeFoods.filter(f=>!isReaction(f.name))) || safePicks[0];
-  }
-
-  // Ensure fruta is covered — swap one safe pick or add fruta if missing
-  const hasFruta = safePicks.some(f => f.cat === 'fruta') || newFood?.cat === 'fruta';
-  if (!hasFruta && safeFreuta.length) {
-    safePicks[safePicks.length - 1] = pick(safeFreuta);
-  }
 
   return {
     foods: safePicks,
@@ -1156,6 +1173,9 @@ function rebuildFutureBlocks() {
 
   const newBlocks = [];
   for (let i = 0; i < remaining; i++) {
+    if (blockType === 'allergen' && !hasAvailableAllergen([...keepBlocks, ...newBlocks])) {
+      blockType = 'normal';
+    }
     const endDate = addDays(currentDate, 2);
     const recipe = buildRecipe(blockType, [...keepBlocks, ...newBlocks]);
     if (!recipe) break;
