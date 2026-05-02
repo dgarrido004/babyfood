@@ -100,7 +100,7 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:r
 }
 
 /* ── Stats ── */
-.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
 .stat{
   background:var(--surface);border:0.5px solid var(--border);
   border-radius:var(--radius-sm);padding:10px 8px;text-align:center;
@@ -278,6 +278,14 @@ input:focus,select:focus{border-color:var(--accent)}
       <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-safe')">+ Añadir alimento seguro</button>
     </div>
 
+    <!-- Alimentos pendientes normales -->
+    <div class="card">
+      <div class="card-title">🧺 Alimentos pendientes</div>
+      <div class="info-box info-blue">Estos alimentos no son alérgenos y se usarán como alimento nuevo en los bloques normales.</div>
+      <div id="pending-list"></div>
+      <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-pending')">+ Añadir alimento pendiente</button>
+    </div>
+
     <!-- Potencialmente alérgenos -->
     <div class="card">
       <div class="card-title">⚠️ Potencialmente alérgenos</div>
@@ -410,6 +418,29 @@ input:focus,select:focus{border-color:var(--accent)}
   </div>
 </div>
 
+<!-- MODAL: Añadir alimento pendiente -->
+<div class="modal-overlay" id="modal-add-pending">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Añadir alimento pendiente</div>
+    <div class="info-box info-blue">Los alimentos pendientes se usarán como alimento nuevo en los bloques normales. Si no hay reacción, pasarán a seguros al finalizar el bloque.</div>
+    <div class="field">
+      <div class="field-label">Nombre</div>
+      <input type="text" id="pending-name" placeholder="Ej: Calabacín"/>
+    </div>
+    <div class="field">
+      <div class="field-label">Categoría</div>
+      <select id="pending-cat">
+        <option value="verdura">🥦 Verduras, hortalizas, cereales y tubérculos</option>
+        <option value="proteina">🍗 Proteínas</option>
+        <option value="fruta">🍎 Frutas</option>
+      </select>
+    </div>
+    <button class="btn btn-full btn-primary" onclick="addPendingFood()">Añadir como pendiente</button>
+    <button class="btn btn-full" onclick="closeModal('modal-add-pending')">Cancelar</button>
+  </div>
+</div>
+
 <!-- MODAL: Añadir alérgeno al pool -->
 <div class="modal-overlay" id="modal-add-allergen">
   <div class="modal-sheet">
@@ -519,6 +550,15 @@ const INITIAL_STATE = {
     {name:'Plátano',cat:'fruta'},{name:'Pollo',cat:'proteina'},
     {name:'Pavo',cat:'proteina'}
   ],
+  // Pool general de alimentos normales pendientes de introducir
+  pendingFoods: [
+    {name:'Calabacín',cat:'verdura'},{name:'Judía verde',cat:'verdura'},
+    {name:'Puerro',cat:'verdura'},{name:'Guisantes',cat:'verdura'},
+    {name:'Lenteja roja',cat:'proteina'},{name:'Garbanzos',cat:'proteina'},
+    {name:'Ternera',cat:'proteina'},{name:'Merluza',cat:'proteina'},
+    {name:'Naranja',cat:'fruta'},{name:'Mango',cat:'fruta'},
+    {name:'Ciruela',cat:'fruta'},{name:'Melón',cat:'fruta'}
+  ],
   // Pool de potencialmente alérgenos (pendientes de probar)
   allergenPool: [
     {name:'Leche de vaca',cat:'proteina'},{name:'Huevo',cat:'proteina'},
@@ -578,7 +618,7 @@ const DAYS_SHORT = ['L','M','X','J','V','S','D'];
 
 function getAllFoods() {
   // All foods = safe + allergenPool (not yet tested or tested)
-  const all = [...S.safeFoods];
+  const all = [...S.safeFoods, ...(S.pendingFoods || [])];
   S.allergenPool.forEach(a => { if (!all.find(f => f.name === a.name)) all.push(a); });
   return all;
 }
@@ -621,6 +661,7 @@ document.querySelectorAll('.modal-overlay').forEach(el => {
 function renderAlimentos() {
   renderStatsAlimentos();
   renderSafeList();
+  renderPendingList();
   renderAllergenPoolList();
   renderTestingList();
   renderReactionsList();
@@ -630,6 +671,7 @@ function renderAlimentos() {
 function renderStatsAlimentos() {
   document.getElementById('stats-alimentos').innerHTML = `
     <div class="stat"><div class="stat-n">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--blue)">${(S.pendingFoods||[]).length}</div><div class="stat-l">Pendientes</div></div>
     <div class="stat"><div class="stat-n" style="color:var(--amber)">${S.allergenPool.length}</div><div class="stat-l">Alérgenos</div></div>
     <div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>
   `;
@@ -653,6 +695,32 @@ function renderSafeList() {
         <div class="food-actions">
           <button class="btn btn-sm btn-danger" onclick="markReactionFromSafe('${f.name}')">Reacción</button>
           <button class="btn btn-sm" onclick="removeSafe('${f.name}')">✕</button>
+        </div>
+      </div>`).join('');
+  });
+  el.innerHTML = html;
+}
+
+function renderPendingList() {
+  const el = document.getElementById('pending-list');
+  S.pendingFoods = S.pendingFoods || [];
+  if (!S.pendingFoods.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-icon">🧺</span>No hay alimentos pendientes</div>';
+    return;
+  }
+  const groups = {verdura:[], proteina:[], fruta:[]};
+  S.pendingFoods.forEach(f => (groups[f.cat]||groups.fruta).push(f));
+  let html = '';
+  ['verdura','proteina','fruta'].forEach(cat => {
+    if (!groups[cat].length) return;
+    html += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`;
+    html += groups[cat].map(f => `
+      <div class="food-row">
+        <div><div class="food-name">${f.name}</div></div>
+        <div class="food-actions">
+          <button class="btn btn-sm btn-success" onclick="movePendingToSafe('${f.name}')">Seguro</button>
+          <button class="btn btn-sm btn-danger" onclick="markReactionFromPending('${f.name}')">Reacción</button>
+          <button class="btn btn-sm" onclick="removePending('${f.name}')">✕</button>
         </div>
       </div>`).join('');
   });
@@ -751,6 +819,40 @@ function markReactionFromSafe(name) {
   save(); renderAlimentos(); rebuildFutureBlocks();
 }
 
+function addPendingFood() {
+  const name = document.getElementById('pending-name').value.trim();
+  const cat = document.getElementById('pending-cat').value;
+  if (!name) { alert('Escribe el nombre del alimento'); return; }
+  if (isSafe(name) || isAllergen(name) || isReaction(name) || (S.pendingFoods||[]).some(f => f.name === name)) {
+    alert('Este alimento ya existe en la app'); return;
+  }
+  S.pendingFoods = S.pendingFoods || [];
+  S.pendingFoods.push({name, cat});
+  document.getElementById('pending-name').value = '';
+  save(); closeModal('modal-add-pending'); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function removePending(name) {
+  if (!confirm(`¿Quitar "${name}" de alimentos pendientes?`)) return;
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function movePendingToSafe(name) {
+  const food = (S.pendingFoods||[]).find(f => f.name === name);
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
+  if (food && !isSafe(name)) S.safeFoods.push(food);
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function markReactionFromPending(name) {
+  if (!confirm(`¿Registrar reacción con "${name}"? Se quitará de alimentos pendientes.`)) return;
+  const food = (S.pendingFoods||[]).find(f => f.name === name);
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
+  if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
 function addAllergenToPool() {
   const preset = document.getElementById('allergen-preset-select').value;
   const custom = document.getElementById('allergen-custom').value.trim();
@@ -794,8 +896,9 @@ function addReactionManual() {
   const name = custom || sel;
   if (!name) { alert('Selecciona o escribe un alimento'); return; }
   // Remove from wherever it is
-  const food = S.safeFoods.find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name);
+  const food = S.safeFoods.find(f=>f.name===name) || (S.pendingFoods||[]).find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name);
   S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
   S.allergenPool = S.allergenPool.filter(a => a.name !== name);
   S.testing = S.testing.filter(t => t.name !== name);
   if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
@@ -869,6 +972,14 @@ function generatePlan() {
       reactionFood: null
     });
 
+    if (blockType === 'allergen' && recipe.newFood && !S.testing.some(t => t.name === recipe.newFood.name)) {
+      S.testing.push({name: recipe.newFood.name, cat: recipe.newFood.cat, startDate: currentDate});
+    }
+
+    if (blockType === 'allergen' && recipe.newFood && !S.testing.some(t => t.name === recipe.newFood.name)) {
+      S.testing.push({name: recipe.newFood.name, cat: recipe.newFood.cat, startDate: currentDate});
+    }
+
     // If allergen block and no reaction assumed at generation time,
     // the allergen will be marked safe after block ends
     currentDate = addDays(endDate, 1);
@@ -941,14 +1052,12 @@ function buildRecipe(type, existingBlocks) {
       if (any.length) newFood = pick(any);
     }
   } else {
-    // normal: food not in safe and not allergen
-    const allFoods = getAllFoods().filter(f => 
-      !isSafe(f.name) && !isAllergen(f.name) && !isReaction(f.name) && !usedNewFoods.has(f.name)
-    );
-    if (allFoods.length) newFood = pick(allFoods);
+    // normal: food from pendingFoods, not yet introduced and not allergen
+    const available = (S.pendingFoods || []).filter(f => !usedNewFoods.has(f.name) && !isReaction(f.name));
+    if (available.length) newFood = pick(available);
     else {
-      // Use a safe food that hasn't been new yet as a repeat
-      newFood = pick(S.safeFoods.filter(f=>!isReaction(f.name)));
+      const anyPending = (S.pendingFoods || []).filter(f => !isReaction(f.name));
+      if (anyPending.length) newFood = pick(anyPending);
     }
   }
 
@@ -1016,7 +1125,10 @@ function checkBlockCompletions() {
       }
       b.completed = true;
     }
-    if (!b.completed && b.type === 'normal' && b.endDate < tod) {
+    if (!b.completed && b.type === 'normal' && b.endDate < tod && !b.reactionFood) {
+      if (b.newFood && (S.pendingFoods||[]).some(f => f.name === b.newFood.name)) {
+        approvePendingSilent(b.newFood.name);
+      }
       b.completed = true;
     }
   });
@@ -1028,6 +1140,12 @@ function approveAllergenSilent(name) {
   S.testing = S.testing.filter(t => t.name !== name);
   S.allergenPool = S.allergenPool.filter(a => a.name !== name);
   if (!isSafe(name)) S.safeFoods.push({name, cat: a?.cat||'otro'});
+}
+
+function approvePendingSilent(name) {
+  const f = (S.pendingFoods||[]).find(f => f.name === name);
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
+  if (f && !isSafe(name)) S.safeFoods.push(f);
 }
 
 // ═══════════════════════════════════════════
@@ -1168,8 +1286,9 @@ function confirmBlockReaction(blockId) {
   b.reactionFood = name;
 
   // Move food to reactions
-  const food = S.safeFoods.find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name) || b.foods.find(f=>f.name===name) || b.newFood;
+  const food = S.safeFoods.find(f=>f.name===name) || (S.pendingFoods||[]).find(f=>f.name===name) || S.allergenPool.find(a=>a.name===name) || b.foods.find(f=>f.name===name) || b.newFood;
   S.safeFoods = S.safeFoods.filter(f => f.name !== name);
+  S.pendingFoods = (S.pendingFoods||[]).filter(f => f.name !== name);
   S.allergenPool = S.allergenPool.filter(a => a.name !== name);
   S.testing = S.testing.filter(t => t.name !== name);
   if (!isReaction(name)) S.reactions.push({name, cat: food?.cat||'otro', date: today()});
