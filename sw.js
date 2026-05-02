@@ -1,27 +1,28 @@
-const CACHE_NAME = 'babyfood-v16';
+const CACHE_NAME = 'babyfood-v24';
 
 const urlsToCache = [
   './',
   './index.html'
 ];
 
-// INSTALACIÓN → cachea recursos básicos
+// INSTALACIÓN
 self.addEventListener('install', event => {
   self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(urlsToCache);
+    })
   );
 });
 
-// ACTIVACIÓN → borra cachés antiguos
+// ACTIVACIÓN (borra versiones antiguas)
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
+    caches.keys().then(keys => {
       return Promise.all(
-        cacheNames.map(name => {
-          if (name !== CACHE_NAME) {
-            return caches.delete(name);
+        keys.map(key => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
           }
         })
       );
@@ -30,20 +31,18 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// FETCH → estrategia: network first
+// FETCH → network first (evita servir HTML viejo roto)
 self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Actualiza cache con versión nueva
-        const responseClone = response.clone();
+        const clone = response.clone();
         caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseClone);
+          cache.put(event.request, clone);
         });
         return response;
       })
       .catch(() => {
-        // Si falla red, usa cache
         return caches.match(event.request);
       })
   );
