@@ -329,6 +329,39 @@ input:focus,select:focus{border-color:var(--accent)}
     <div id="cocina-content"></div>
   </div>
 
+  <!-- AJUSTES -->
+  <div class="screen" id="screen-ajustes">
+    <div class="card">
+      <div class="card-title">💾 Copia de seguridad</div>
+      <div class="info-box info-blue" style="margin-bottom:14px">Exporta tus datos para guardarlos o transferirlos a otro móvil. Guarda el archivo en un lugar seguro (Google Drive, email, etc.).</div>
+      <button class="btn btn-full btn-primary" onclick="exportData()">⬇️ Exportar datos</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Restaurar datos</div>
+      <div class="info-box info-amber" style="margin-bottom:14px">Importa un archivo de copia de seguridad. <strong>Atención: esto reemplazará todos los datos actuales.</strong></div>
+      <label class="btn btn-full" style="display:block;text-align:center;cursor:pointer;border-style:dashed">
+        ⬆️ Importar datos
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(this)"/>
+      </label>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ℹ️ Acerca de</div>
+      <div style="font-size:13px;color:var(--text2);line-height:1.7">
+        <div><strong>BabyFood</strong> v2.0</div>
+        <div style="margin-top:4px">App de seguimiento de alimentación complementaria y alérgenos para bebés.</div>
+        <div style="margin-top:8px;font-size:12px;color:var(--text3)">Los datos se guardan localmente en este dispositivo.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="color:var(--red)">⚠️ Zona peligrosa</div>
+      <div class="info-box info-red" style="margin-bottom:14px">Esto borrará todos los datos de la app de forma permanente. No se puede deshacer.</div>
+      <button class="btn btn-full btn-danger" onclick="resetAllData()">🗑️ Borrar todos los datos</button>
+    </div>
+  </div>
+
 </div>
 
 <!-- Bottom nav -->
@@ -348,6 +381,10 @@ input:focus,select:focus{border-color:var(--accent)}
   <button class="nav-btn" id="nav-cocina" onclick="showScreen('cocina')">
     <span class="nav-icon">👩‍🍳</span>
     <span class="nav-label">Cocina</span>
+  </button>
+  <button class="nav-btn" id="nav-ajustes" onclick="showScreen('ajustes')">
+    <span class="nav-icon">⚙️</span>
+    <span class="nav-label">Ajustes</span>
   </button>
 </nav>
 
@@ -1343,6 +1380,61 @@ window.openModal = function(id) {
   if (id === 'modal-add-allergen') populateAllergenPresetSelect();
   origOpenModal(id);
 };
+
+// ═══════════════════════════════════════════
+// AJUSTES: EXPORT / IMPORT / RESET
+// ═══════════════════════════════════════════
+function exportData() {
+  const data = JSON.stringify(S, null, 2);
+  const blob = new Blob([data], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = today().replace(/-/g,'');
+  a.href = url;
+  a.download = `babyfood-backup-${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function importData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!confirm('¿Importar este archivo? Se reemplazarán todos los datos actuales.')) {
+    input.value = '';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      // Validate basic structure
+      if (!imported.safeFoods || !imported.allergenPool) {
+        alert('El archivo no parece ser una copia de BabyFood válida.');
+        return;
+      }
+      S = {...INITIAL_STATE, ...imported};
+      save();
+      renderAlimentos();
+      alert('✅ Datos importados correctamente.');
+    } catch(err) {
+      alert('Error al leer el archivo. Asegúrate de que es una copia de BabyFood.');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function resetAllData() {
+  if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
+  if (!confirm('¿Estás segura? Se perderán todos los alimentos, bloques y recetas.')) return;
+  S = JSON.parse(JSON.stringify(INITIAL_STATE));
+  save();
+  renderAlimentos();
+  showScreen('alimentos');
+  alert('Datos borrados. La app ha vuelto al estado inicial.');
+}
 
 // ═══════════════════════════════════════════
 // INIT
