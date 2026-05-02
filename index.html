@@ -116,6 +116,8 @@ body{display:flex;flex-direction:column;max-width:480px;margin:0 auto;position:r
 .b-reaction{background:var(--red-light);color:var(--red-dark)}
 .b-normal{background:var(--blue-light);color:var(--blue)}
 .b-gray{background:var(--surface2);color:var(--text2)}
+.b-iron{background:#FDEAEA;color:#7A1A1A}
+.b-locked{background:var(--surface2);color:var(--text3)}
 
 /* ── Food rows ── */
 .food-row{
@@ -284,6 +286,12 @@ input:focus,select:focus{border-color:var(--accent)}
       <div class="info-box info-blue">Estos alimentos no son alérgenos y se usarán como alimento nuevo en los bloques normales.</div>
       <div id="pending-list"></div>
       <button class="btn btn-full btn-dashed" style="margin-top:10px" onclick="openModal('modal-add-pending')">+ Añadir alimento pendiente</button>
+    </div>
+
+    <!-- Lácteos bloqueados -->
+    <div class="card">
+      <div class="card-title">🧀 Lácteos</div>
+      <div id="dairy-list"></div>
     </div>
 
     <!-- Potencialmente alérgenos -->
@@ -525,6 +533,30 @@ input:focus,select:focus{border-color:var(--accent)}
   </div>
 </div>
 
+<!-- MODAL: Primera configuración -->
+<div class="modal-overlay" id="modal-birthdate">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">👶 Datos del bebé</div>
+    <div class="info-box info-blue">Para calcular la semana de vida y desbloquear alimentos por edad, indica la fecha de nacimiento del bebé.</div>
+    <div class="field">
+      <div class="field-label">Fecha de nacimiento</div>
+      <input type="date" id="baby-birth-date"/>
+    </div>
+    <button class="btn btn-full btn-primary" onclick="saveBabyBirthDate()">Guardar y empezar</button>
+  </div>
+</div>
+
+<!-- MODAL: Consejo diario -->
+<div class="modal-overlay" id="modal-tip">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💡 Consejo de hoy</div>
+    <div id="daily-tip-content" class="info-box info-blue"></div>
+    <button class="btn btn-full btn-primary" onclick="closeModal('modal-tip')">Entendido</button>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 // DATA
@@ -559,6 +591,19 @@ const INITIAL_STATE = {
     {name:'Naranja',cat:'fruta'},{name:'Mango',cat:'fruta'},
     {name:'Ciruela',cat:'fruta'},{name:'Melón',cat:'fruta'}
   ],
+  // Lácteos pendientes por edad. Se activan a los 9/12 meses.
+  lacteosPending: [
+    {name:'Yogur natural',cat:'proteina',unlockMonths:9},
+    {name:'Queso tierno',cat:'proteina',unlockMonths:9},
+    {name:'Leche entera de vaca',cat:'proteina',unlockMonths:12}
+  ],
+  lacteosActivated9: false,
+  lacteosActivated12: false,
+  babyBirthDate: null,
+  lastTipDate: null,
+  allergensMilestoneDate: null,
+  shoppingWeekOffset: 0,
+
   // Pool de potencialmente alérgenos (pendientes de probar)
   allergenPool: [
     {name:'Leche de vaca',cat:'proteina'},{name:'Huevo',cat:'proteina'},
@@ -1573,12 +1618,355 @@ function resetAllData() {
   alert('Datos borrados. La app ha vuelto al estado inicial.');
 }
 
+
+// ═══════════════════════════════════════════
+// BABYFOOD V4 — MEJORAS AEP + LÁCTEOS + COMPRA
+// ═══════════════════════════════════════════
+const DAILY_TIPS = [
+  'No es necesario forzar cantidades. Los adultos deciden qué se ofrece; el bebé decide cuánto come.',
+  'Evita añadir sal o azúcar a la comida del bebé. Mejor que se acostumbre a los sabores naturales.',
+  'Introduce los alimentos de uno en uno y deja unos días para observar tolerancia y aceptación.',
+  'Supervisa siempre al bebé mientras come y evita que coma recostado.',
+  'Evita alimentos con riesgo de atragantamiento: frutos secos enteros, uvas enteras, palomitas o salchichas en rodajas.',
+  'Ofrece alimentos ricos en hierro con frecuencia: carne, huevo, legumbres, pescado y algunas verduras como el brócoli.',
+  'La leche materna o fórmula sigue siendo el alimento principal durante el primer año.',
+  'Si el bebé rechaza un alimento, no lo interpretes como definitivo: puede necesitar varias exposiciones sin presión.',
+  'Evita zumos si puede tomar la fruta entera.',
+  'Las texturas deben progresar poco a poco; no conviene retrasar las texturas grumosas más allá de los 8-9 meses.'
+];
+
+const SAFETY_RULES = [
+  {words:['espinaca','espinacas','acelga','acelgas','borraja'], msg:'Verdura de hoja verde alta en nitratos: se recomienda evitarla durante el primer año o usarla con mucha prudencia.'},
+  {words:['sal'], msg:'No se recomienda añadir sal a la alimentación complementaria del bebé.'},
+  {words:['azúcar','azucar'], msg:'No se recomienda añadir azúcar ni ofrecer productos azucarados.'},
+  {words:['miel'], msg:'La miel debe evitarse antes de los 12 meses.'},
+  {words:['fruto seco entero','frutos secos enteros','nuez entera','almendra entera','avellana entera','cacahuete entero'], msg:'Riesgo de atragantamiento: no ofrecer frutos secos enteros.'},
+  {words:['uva entera','uvas enteras'], msg:'Riesgo de atragantamiento: las uvas enteras no son seguras.'},
+  {words:['zanahoria cruda','manzana cruda'], msg:'Riesgo de atragantamiento: evita piezas duras crudas.'},
+  {words:['salchicha'], msg:'Riesgo de atragantamiento y alimento poco recomendable: evita salchichas en rodajas.'},
+  {words:['palomitas'], msg:'Riesgo de atragantamiento: evita palomitas.'}
+];
+
+function jsStr(v){ return JSON.stringify(String(v)); }
+function normName(v){ return String(v||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function foodHasIron(name, cat){
+  const n = normName(name);
+  return ['ternera','vacuno','carne roja','cordero','huevo','yema','lenteja','lentejas','garbanzo','garbanzos','alubia','alubias','judia blanca','judías blancas','pescado','merluza','pollo','pavo','brocoli','brócoli','guisantes','tofu','hummus'].some(w=>n.includes(normName(w))) || cat === 'proteina';
+}
+function enrichFood(food){
+  if(!food) return food;
+  if(food.ironRich === undefined) food.ironRich = foodHasIron(food.name, food.cat);
+  return food;
+}
+function enrichFoods(arr){ return (arr||[]).map(enrichFood); }
+function ensureV4State(){
+  S.safeFoods = enrichFoods(S.safeFoods);
+  S.pendingFoods = enrichFoods(S.pendingFoods || []);
+  S.allergenPool = enrichFoods(S.allergenPool || []);
+  S.reactions = S.reactions || [];
+  S.testing = S.testing || [];
+  S.blocks = S.blocks || [];
+  S.recipes = S.recipes || [];
+  S.calNotes = S.calNotes || {};
+  S.lacteosPending = enrichFoods(S.lacteosPending || [
+    {name:'Yogur natural',cat:'proteina',unlockMonths:9},
+    {name:'Queso tierno',cat:'proteina',unlockMonths:9},
+    {name:'Leche entera de vaca',cat:'proteina',unlockMonths:12}
+  ]);
+  if(S.lacteosActivated9 === undefined) S.lacteosActivated9 = false;
+  if(S.lacteosActivated12 === undefined) S.lacteosActivated12 = false;
+  if(S.babyBirthDate === undefined) S.babyBirthDate = null;
+  if(S.lastTipDate === undefined) S.lastTipDate = null;
+  if(S.allergensMilestoneDate === undefined) S.allergensMilestoneDate = null;
+  if(S.shoppingWeekOffset === undefined) S.shoppingWeekOffset = 0;
+}
+function checkFoodWarning(name){
+  const n = normName(name);
+  const found = SAFETY_RULES.find(r => r.words.some(w => n.includes(normName(w))));
+  if(!found) return true;
+  return confirm('Aviso de seguridad:\n\n' + found.msg + '\n\n¿Quieres añadirlo igualmente?');
+}
+function foodBadge(f){ return f?.ironRich ? '<span class="badge b-iron" style="margin-left:6px">Hierro</span>' : ''; }
+
+function fullMonthsBetween(birth, date){
+  const b=parseDate(birth), d=parseDate(date);
+  let m=(d.getFullYear()-b.getFullYear())*12 + (d.getMonth()-b.getMonth());
+  if(d.getDate()<b.getDate()) m--;
+  return Math.max(0,m);
+}
+function babyAgeInfo(dateStr=today()){
+  if(!S.babyBirthDate) return {days:null,weeks:null,months:null,extraWeeks:null,text:'Fecha pendiente'};
+  const days=Math.max(0,daysBetween(S.babyBirthDate,dateStr));
+  const weeks=Math.floor(days/7)+1;
+  const months=fullMonthsBetween(S.babyBirthDate,dateStr);
+  const afterMonth=parseDate(S.babyBirthDate); afterMonth.setMonth(afterMonth.getMonth()+months);
+  const extraWeeks=Math.floor(Math.max(0,(parseDate(dateStr)-afterMonth)/86400000)/7);
+  return {days,weeks,months,extraWeeks,text:`Semana ${weeks} · ${months} meses y ${extraWeeks} semanas`};
+}
+function isAtLeastMonths(m, dateStr=today()){ return S.babyBirthDate && fullMonthsBetween(S.babyBirthDate,dateStr) >= m; }
+function saveBabyBirthDate(){
+  const v=document.getElementById('baby-birth-date').value;
+  if(!v){ alert('Indica la fecha de nacimiento'); return; }
+  S.babyBirthDate=v; save(); closeModal('modal-birthdate'); updateHeaderChip(); maybeShowDailyTip(); renderAlimentos();
+}
+function maybeOpenBirthModal(){
+  if(!S.babyBirthDate){ setTimeout(()=>openModal('modal-birthdate'), 300); }
+}
+function maybeShowDailyTip(){
+  if(!S.babyBirthDate) return;
+  if(S.lastTipDate === today()) return;
+  const tip = DAILY_TIPS[Math.floor(Math.random()*DAILY_TIPS.length)];
+  const el=document.getElementById('daily-tip-content');
+  if(el){ el.textContent=tip; S.lastTipDate=today(); save(); setTimeout(()=>openModal('modal-tip'), 700); }
+}
+
+function updateHeaderChip(){
+  const info=babyAgeInfo();
+  document.getElementById('header-chip').textContent = S.babyBirthDate ? info.text : (S.safeFoods.length + ' seguros');
+}
+
+function renderStatsAlimentos(){
+  ensureV4State();
+  document.getElementById('stats-alimentos').innerHTML = `
+    <div class="stat"><div class="stat-n">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--amber)">${S.allergenPool.length}</div><div class="stat-l">Alérgenos</div></div>
+    <div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;
+}
+function renderFoodGroups(list, actionsFn){
+  if(!list.length) return '';
+  const groups={verdura:[],proteina:[],fruta:[]};
+  list.forEach(f => (groups[f.cat]||groups.fruta).push(enrichFood(f)));
+  let html='';
+  ['verdura','proteina','fruta'].forEach(cat=>{
+    if(!groups[cat].length) return;
+    html += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`;
+    html += groups[cat].map(f=>`<div class="food-row"><div><div class="food-name">${f.name}${foodBadge(f)}</div></div><div class="food-actions">${actionsFn(f)}</div></div>`).join('');
+  });
+  return html;
+}
+function renderSafeList(){
+  const el=document.getElementById('safe-list');
+  el.innerHTML = S.safeFoods.length ? renderFoodGroups(S.safeFoods, f=>`<button class="btn btn-sm btn-danger" onclick="markReactionFromSafe(${jsStr(f.name)})">Reacción</button><button class="btn btn-sm" onclick="removeSafe(${jsStr(f.name)})">✕</button>`) : '<div class="empty"><span class="empty-icon">🌱</span>Aún no hay alimentos seguros</div>';
+}
+function renderPendingList(){
+  const el=document.getElementById('pending-list');
+  el.innerHTML = S.pendingFoods.length ? renderFoodGroups(S.pendingFoods, f=>`<button class="btn btn-sm btn-success" onclick="movePendingToSafe(${jsStr(f.name)})">Seguro</button><button class="btn btn-sm btn-danger" onclick="markReactionFromPending(${jsStr(f.name)})">Reacción</button><button class="btn btn-sm" onclick="removePending(${jsStr(f.name)})">✕</button>`) : '<div class="empty"><span class="empty-icon">🧺</span>No hay alimentos pendientes</div>';
+}
+function renderDairyList(){
+  const el=document.getElementById('dairy-list'); if(!el) return;
+  ensureV4State();
+  let html='';
+  const age=babyAgeInfo();
+  html += `<div class="info-box info-blue">Edad actual: <strong>${age.text}</strong></div>`;
+  const eligible9 = isAtLeastMonths(9) && !S.lacteosActivated9 && S.lacteosPending.some(f=>f.unlockMonths<=9);
+  const eligible12 = isAtLeastMonths(12) && !S.lacteosActivated12 && S.lacteosPending.some(f=>f.unlockMonths<=12);
+  if(eligible9) html += `<div class="info-box info-green">Ya puedes activar yogur natural y queso tierno. Al activarlos pasarán a alimentos pendientes y podrán entrar en próximos planes.</div><button class="btn btn-full btn-success" onclick="activateDairy(9)">Activar lácteos de 9 meses</button>`;
+  if(eligible12) html += `<div class="info-box info-green">Ya puedes activar leche entera de vaca. Pasará a alimentos pendientes.</div><button class="btn btn-full btn-success" onclick="activateDairy(12)">Activar lácteos de 12 meses</button>`;
+  if(S.lacteosPending.length){
+    html += S.lacteosPending.map(f=>{
+      const ok=isAtLeastMonths(f.unlockMonths);
+      return `<div class="food-row"><div><div class="food-name">${f.name}</div><div class="food-meta">${ok?'Disponible para activar':'Disponible desde '+f.unlockMonths+' meses'}</div></div><span class="badge ${ok?'b-safe':'b-locked'}">${ok?'Listo':'Bloqueado'}</span></div>`;
+    }).join('');
+  } else html += '<div class="empty">No quedan lácteos bloqueados</div>';
+  el.innerHTML=html;
+}
+function renderAllergenPoolList(){
+  const el=document.getElementById('allergen-pool-list');
+  if(!S.allergenPool.length){ el.innerHTML = `<div class="empty"><span class="empty-icon">🏁</span>Alérgenos completados</div>`; return; }
+  const groups={verdura:[],proteina:[],fruta:[]};
+  S.allergenPool.forEach(f=>(groups[f.cat]||groups.fruta).push(enrichFood(f)));
+  let html='';
+  ['verdura','proteina','fruta'].forEach(cat=>{
+    if(!groups[cat].length) return;
+    html += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`;
+    html += groups[cat].map(f=>{
+      const testing=S.testing.find(t=>t.name===f.name);
+      const days=testing ? Math.min(daysSince(testing.startDate)+1,3) : 0;
+      const pct=testing ? Math.min(100, Math.round((days/3)*100)) : 0;
+      const done=testing && daysSince(testing.startDate)>=3;
+      return `<div class="food-row"><div style="flex:1"><div class="food-name">${f.name}${foodBadge(f)}</div>${testing?`<div class="food-meta">Día ${days}/3 · desde ${testing.startDate}</div><div class="prog-wrap"><div class="prog-fill" style="width:${pct}%"></div></div>`:''}</div><div class="food-actions">${done?`<button class="btn btn-sm btn-success" onclick="approveAllergen(${jsStr(f.name)})">✓ Aprobar</button>`:''}${testing?`<button class="btn btn-sm btn-danger" onclick="markReactionAllergen(${jsStr(f.name)})">Reacción</button>`:''}<button class="btn btn-sm" onclick="removeAllergenPool(${jsStr(f.name)})">✕</button></div></div>`;
+    }).join('');
+  });
+  el.innerHTML=html;
+}
+function renderReactionsList(){
+  const el=document.getElementById('reactions-list');
+  if(!S.reactions.length){ el.innerHTML = '<div class="empty">Sin reacciones registradas 🎉</div>'; return; }
+  el.innerHTML=S.reactions.map(r=>`<div class="food-row"><div><div class="food-name">${r.name}</div><div class="food-meta">${r.date||''} · ${CAT_LABEL[r.cat]||'Sin categoría'}</div></div><div class="food-actions"><button class="btn btn-sm btn-success" onclick="retryReaction(${jsStr(r.name)})">Reintentar</button><button class="btn btn-sm" onclick="removeReaction(${jsStr(r.name)})" title="Mover a pendientes">↩</button></div></div>`).join('');
+}
+function renderAlimentos(){
+  ensureV4State(); renderStatsAlimentos(); renderSafeList(); renderPendingList(); renderDairyList(); renderAllergenPoolList(); renderTestingList(); renderReactionsList(); updateHeaderChip();
+}
+function activateDairy(months){
+  ensureV4State();
+  if(!isAtLeastMonths(months)){ alert('Todavía no corresponde activar estos lácteos por edad.'); return; }
+  const moving=S.lacteosPending.filter(f=>f.unlockMonths<=months);
+  S.lacteosPending=S.lacteosPending.filter(f=>f.unlockMonths>months);
+  moving.forEach(f=>{ if(!isSafe(f.name)&&!isPending(f.name)&&!isAllergen(f.name)&&!isReaction(f.name)) S.pendingFoods.push(enrichFood({name:f.name,cat:f.cat,ironRich:false})); });
+  if(months>=9) S.lacteosActivated9=true;
+  if(months>=12) S.lacteosActivated12=true;
+  save(); renderAlimentos(); rebuildFutureBlocks();
+}
+
+function addSafeFood(){
+  const name=document.getElementById('safe-name').value.trim(); const cat=document.getElementById('safe-cat').value;
+  if(!name){alert('Escribe el nombre del alimento');return;} if(!checkFoodWarning(name)) return;
+  if(isSafe(name)||isPending(name)||isAllergen(name)||isReaction(name)){alert('Este alimento ya existe en la app');return;}
+  S.safeFoods.push(enrichFood({name,cat})); document.getElementById('safe-name').value=''; save(); closeModal('modal-add-safe'); renderAlimentos();
+}
+function addPendingFood(){
+  const name=document.getElementById('pending-name').value.trim(); const cat=document.getElementById('pending-cat').value;
+  if(!name){alert('Escribe el nombre del alimento');return;} if(!checkFoodWarning(name)) return;
+  if(isSafe(name)||isPending(name)||isAllergen(name)||isReaction(name)){alert('Este alimento ya existe en la app');return;}
+  S.pendingFoods.push(enrichFood({name,cat})); document.getElementById('pending-name').value=''; save(); closeModal('modal-add-pending'); renderAlimentos(); rebuildFutureBlocks();
+}
+function addAllergenToPool(){
+  const preset=document.getElementById('allergen-preset-select').value; const custom=document.getElementById('allergen-custom').value.trim(); const cat=document.getElementById('allergen-cat').value; const name=custom||preset;
+  if(!name){alert('Selecciona o escribe un alérgeno');return;} if(!checkFoodWarning(name)) return;
+  if(isAllergen(name)||isSafe(name)||isPending(name)||isReaction(name)){alert('Este alimento ya existe en la app');return;}
+  S.allergenPool.push(enrichFood({name,cat})); document.getElementById('allergen-custom').value=''; document.getElementById('allergen-preset-select').value=''; save(); closeModal('modal-add-allergen'); renderAlimentos();
+}
+
+function pickWeighted(arr){
+  if(!arr.length) return null;
+  const weighted=[]; arr.forEach(f=>{ weighted.push(f); if(f.ironRich) {weighted.push(f); weighted.push(f);} });
+  return weighted[Math.floor(Math.random()*weighted.length)];
+}
+function pickUnused(arr, used){
+  const avail=arr.filter(f=>!used.has(f.name));
+  return avail.length ? pickWeighted(avail) : null;
+}
+function buildRecipe(type, existingBlocks){
+  ensureV4State();
+  const usedNewFoods=new Set(existingBlocks.map(b=>b.newFood?.name || b.newFood).filter(Boolean));
+  const safe=S.safeFoods.filter(f=>!isReaction(f.name));
+  const byCat=c=>safe.filter(f=>f.cat===c);
+  const used=new Set(); const picks=[];
+  const add=f=>{ if(f && !used.has(f.name)){ picks.push(f); used.add(f.name); } };
+
+  let newFood=null;
+  if(type==='allergen'){
+    const available=S.allergenPool.filter(a=>!usedNewFoods.has(a.name)&&!isReaction(a.name));
+    if(available.length) newFood=pickWeighted(available);
+    else type='normal';
+  }
+  if(type==='normal'){
+    const available=S.pendingFoods.filter(f=>!usedNewFoods.has(f.name)&&!isReaction(f.name));
+    if(available.length) newFood=pickWeighted(available);
+  }
+
+  const need={verdura:2, proteina:1, fruta:1};
+  if(newFood && need[newFood.cat] !== undefined) need[newFood.cat]--;
+  for(const cat of ['verdura','proteina','fruta']){
+    while(need[cat] > 0){
+      const f=pickUnused(byCat(cat), used);
+      if(!f) break; add(f); need[cat]--;
+    }
+  }
+  while(picks.length < (newFood ? 3 : 4)){
+    const f=pickUnused(safe, used); if(!f) break; add(f);
+  }
+  if(picks.length < 3 || (!newFood && picks.length < 4)) return null;
+  return {foods:picks, newFood, type};
+}
+function generatePlan(){
+  ensureV4State();
+  const startStr=document.getElementById('plan-start-date').value;
+  if(!startStr){alert('Elige una fecha de inicio');return;}
+  if(S.babyBirthDate && fullMonthsBetween(S.babyBirthDate,startStr) < 6){
+    if(!confirm('Antes de los 6 meses solo debería iniciarse alimentación complementaria por indicación del pediatra.\n\n¿Quieres generar el plan igualmente?')) return;
+  }
+  const blocks=[]; let currentDate=startStr; let blockType='normal';
+  for(let i=0;i<10;i++){
+    if(blockType==='allergen' && S.allergenPool.length===0) blockType='normal';
+    const endDate=addDays(currentDate,2); const recipe=buildRecipe(blockType,blocks); if(!recipe) break;
+    const actualType = recipe.type || blockType;
+    blocks.push({id:i,type:actualType,startDate:currentDate,endDate,foods:recipe.foods,newFood:recipe.newFood,completed:false,reactionFood:null});
+    currentDate=addDays(endDate,1);
+    blockType = (blockType==='normal' && S.allergenPool.length>0) ? 'allergen' : 'normal';
+  }
+  S.blocks=blocks; save(); closeModal('modal-setup-plan'); renderPlan(); renderCalendario(); renderAlimentos();
+}
+function approvePendingSilent(name){
+  const f=S.pendingFoods.find(f=>f.name===name);
+  S.pendingFoods=S.pendingFoods.filter(f=>f.name!==name);
+  if(f && !isSafe(name)) S.safeFoods.push(enrichFood(f));
+}
+function checkAllergenMilestone(){
+  if(S.allergenPool.length===0 && !S.allergensMilestoneDate){ S.allergensMilestoneDate=today(); }
+}
+function checkBlockCompletions(){
+  ensureV4State(); const tod=today();
+  S.blocks.forEach(b=>{
+    if(!b.completed && b.endDate < tod && !b.reactionFood){
+      if(b.newFood){
+        if(b.type==='allergen' && isAllergen(b.newFood.name)) approveAllergenSilent(b.newFood.name);
+        if(b.type==='normal' && isPending(b.newFood.name)) approvePendingSilent(b.newFood.name);
+      }
+      b.completed=true;
+    }
+  });
+  checkAllergenMilestone(); save();
+}
+function rebuildFutureBlocks(){
+  if(!S.blocks.length) return; ensureV4State();
+  const tod=today(); const futureIdx=S.blocks.findIndex(b=>b.endDate>=tod && !b.completed);
+  if(futureIdx===-1) return;
+  const keepBlocks=S.blocks.slice(0,futureIdx); let currentDate=futureIdx>0?addDays(S.blocks[futureIdx-1].endDate,1):S.blocks[futureIdx].startDate;
+  let blockType=futureIdx%2===0?'normal':'allergen'; const remaining=10-keepBlocks.length; const newBlocks=[];
+  for(let i=0;i<remaining;i++){
+    if(blockType==='allergen' && S.allergenPool.length===0) blockType='normal';
+    const endDate=addDays(currentDate,2); const recipe=buildRecipe(blockType,[...keepBlocks,...newBlocks]); if(!recipe) break;
+    const actualType=recipe.type||blockType;
+    newBlocks.push({id:keepBlocks.length+i,type:actualType,startDate:currentDate,endDate,foods:recipe.foods,newFood:recipe.newFood,completed:false,reactionFood:null});
+    currentDate=addDays(endDate,1); blockType=(blockType==='normal' && S.allergenPool.length>0)?'allergen':'normal';
+  }
+  S.blocks=[...keepBlocks,...newBlocks]; save();
+}
+
+function foodTagsForBlock(b){
+  return `${b.foods.map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}${f.ironRich?' · Fe':''}</span>`).join('')}${b.newFood?`<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>`:''}`;
+}
+function renderCurrentBlockCard(b){
+  const tod=today(); const dayNum=daysBetween(b.startDate,tod)+1;
+  return `<div class="card" style="border:2px solid var(--accent)"><div class="card-title">📍 Bloque actual — Día ${dayNum} de 3</div><div style="font-size:14px;font-weight:800;margin-bottom:4px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'}</div><div style="font-size:12px;color:var(--text3);font-weight:600;margin-bottom:12px">${formatDateRange(b.startDate,b.endDate)}</div><div style="margin-bottom:12px"><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍲 PURÉ / COMIDA DE MEDIODÍA</div><div class="block-foods">${b.foods.filter(f=>f.cat!=='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${f.name}</span>`).join('')}${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>`:''}</div></div><div><div style="font-size:12px;font-weight:700;color:var(--text3);margin-bottom:6px">🍎 FRUTA DE TARDE</div><div class="block-foods">${b.foods.filter(f=>f.cat==='fruta').map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]} ${f.name}</span>`).join('')}${b.newFood&&b.newFood.cat==='fruta'?`<span class="block-food-tag block-food-new">✨ ${b.newFood.name}</span>`:''}</div></div>${b.newFood?`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}" style="margin-top:12px;margin-bottom:0">Alimento nuevo en prueba: <strong>${b.newFood.name}</strong>. Si no hay reacción al final del bloque, pasará a alimentos seguros automáticamente.</div>`:''}<button class="btn btn-sm btn-danger" style="margin-top:12px;width:100%" onclick="openReactionForBlock(${b.id})">Registrar reacción en este bloque</button></div>`;
+}
+function weekRange(offset=0){
+  const d=new Date(); d.setDate(d.getDate()+offset*7); const day=d.getDay(); const diff=day===0?-6:1-day; const start=new Date(d); start.setDate(d.getDate()+diff); const end=new Date(start); end.setDate(start.getDate()+6); return {start:fmtDate(start),end:fmtDate(end)};
+}
+function setShoppingWeek(dir){ S.shoppingWeekOffset=(S.shoppingWeekOffset||0)+dir; save(); renderPlan(); }
+function renderShoppingList(){
+  const w=weekRange(S.shoppingWeekOffset||0); const foods=[];
+  S.blocks.filter(b=>b.endDate>=w.start && b.startDate<=w.end).forEach(b=>{ foods.push(...b.foods); if(b.newFood) foods.push(b.newFood); });
+  const uniq=[]; const seen=new Set(); foods.forEach(f=>{ if(f&&!seen.has(f.name)){seen.add(f.name); uniq.push(f);} });
+  const groups={verdura:[],proteina:[],fruta:[]}; uniq.forEach(f=>(groups[f.cat]||groups.fruta).push(f.name));
+  let body=''; ['verdura','proteina','fruta'].forEach(cat=>{ if(groups[cat].length) body += `<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div><div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:6px">${groups[cat].sort().join(', ')}</div>`; });
+  if(!body) body='<div class="empty">No hay alimentos programados esta semana</div>';
+  return `<div class="card"><div class="card-title">🛒 Lista de compra semanal</div><div class="cal-nav" style="margin-bottom:8px"><button class="btn btn-sm" onclick="setShoppingWeek(-1)">← Semana</button><span style="font-size:12px;font-weight:800;color:var(--text2)">${formatDateRange(w.start,w.end)}</span><button class="btn btn-sm" onclick="setShoppingWeek(1)">Semana →</button></div>${body}</div>`;
+}
+function renderMilestone(){
+  if(S.allergenPool.length===0) return `<div class="card" style="border:2px solid var(--green)"><div class="card-title">🏁 Hito conseguido</div><div class="info-box info-green" style="margin-bottom:0"><strong>Alérgenos completados.</strong><br>Desde ahora el plan deja de generar bloques alérgenos y continúa funcionando como menú, calendario y lista de compra. Los alimentos con reacción seguirán excluidos.</div></div>`;
+  return '';
+}
+function renderPlan(){
+  checkBlockCompletions(); const el=document.getElementById('plan-content'); const age=S.babyBirthDate?babyAgeInfo().text:'Fecha de nacimiento pendiente';
+  if(!S.blocks.length){ el.innerHTML=`<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:800;margin-bottom:6px">Sin plan generado</div><div style="font-size:13px;color:var(--text3);margin-bottom:8px">Edad: ${age}</div><div style="font-size:13px;color:var(--text3);margin-bottom:16px">Genera un plan mensual para ver los bloques de alimentación del bebé</div><button class="btn btn-primary btn-full" onclick="openSetupPlan()">Generar plan mensual</button></div>${renderShoppingList()}`; return; }
+  const tod=today(); const currentBlock=S.blocks.find(b=>b.startDate<=tod&&b.endDate>=tod); let html=''; if(currentBlock) html+=renderCurrentBlockCard(currentBlock); html+=renderMilestone(); html+=renderShoppingList(); html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div class="section-title" style="margin:0">Todos los bloques</div><button class="btn btn-sm btn-primary" onclick="openSetupPlan()">Regenerar</button></div>`;
+  S.blocks.forEach(b=>{ const isPast=b.endDate<tod; const isCurrent=b.startDate<=tod&&b.endDate>=tod; const cls=b.type==='allergen'?'block-allergen':'block-normal'; const typeLabel=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'; const statusBadge=isPast?'<span class="badge b-gray">Completado</span>':isCurrent?'<span class="badge b-safe">Actual</span>':''; html+=`<div class="block-card ${cls}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.7':''}"><div class="block-title">${typeLabel} ${statusBadge}</div><div class="block-dates">📅 ${formatDateRange(b.startDate,b.endDate)}</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${b.reactionFood}</span></div>`:''}</div>`; });
+  el.innerHTML=html;
+}
+function openSetupPlan(){ document.getElementById('plan-start-date').value=today(); openModal('modal-setup-plan'); }
+
 // ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 load();
+ensureV4State();
 checkBlockCompletions();
 renderAlimentos();
+maybeOpenBirthModal();
+maybeShowDailyTip();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
