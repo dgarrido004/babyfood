@@ -626,6 +626,7 @@ function getAllFoods() {
 function isReaction(name) { return S.reactions.some(r => r.name === name); }
 function isSafe(name) { return S.safeFoods.some(f => f.name === name); }
 function isAllergen(name) { return S.allergenPool.some(a => a.name === name); }
+function isPending(name) { return (S.pendingFoods || []).some(f => f.name === name); }
 function isTesting(name) { return S.testing.some(t => t.name === name); }
 
 // ═══════════════════════════════════════════
@@ -785,7 +786,7 @@ function renderReactionsList() {
       </div>
       <div class="food-actions">
         <button class="btn btn-sm btn-success" onclick="retryReaction('${r.name}')">Reintentar</button>
-        <button class="btn btn-sm" onclick="removeReaction('${r.name}')">✕</button>
+        <button class="btn btn-sm" onclick="removeReaction('${r.name}')" title="Mover a pendientes">↩</button>
       </div>
     </div>`).join('');
 }
@@ -906,17 +907,33 @@ function addReactionManual() {
   save(); closeModal('modal-add-reaction'); renderAlimentos(); rebuildFutureBlocks();
 }
 
-function retryReaction(name) {
+function moveReactionToPending(name, askConfirm = true) {
   const r = S.reactions.find(r => r.name === name);
+  if (!r) return;
+
+  if (askConfirm && !confirm(`¿Quitar "${name}" de reacciones y volver a ponerlo como alimento pendiente?`)) return;
+
   S.reactions = S.reactions.filter(r => r.name !== name);
-  if (!isAllergen(name)) S.allergenPool.push({name, cat: r?.cat||'otro'});
-  save(); renderAlimentos();
+
+  if (!isSafe(name) && !isPending(name) && !isAllergen(name)) {
+    S.pendingFoods = S.pendingFoods || [];
+    S.pendingFoods.push({
+      name,
+      cat: r?.cat || 'verdura'
+    });
+  }
+
+  save();
+  renderAlimentos();
+  rebuildFutureBlocks();
+}
+
+function retryReaction(name) {
+  moveReactionToPending(name, true);
 }
 
 function removeReaction(name) {
-  if (!confirm(`¿Eliminar "${name}" de reacciones?`)) return;
-  S.reactions = S.reactions.filter(r => r.name !== name);
-  save(); renderAlimentos();
+  moveReactionToPending(name, true);
 }
 
 function populateReactionFoodSelect() {
@@ -930,6 +947,7 @@ function populateAllergenPresetSelect() {
   const sel = document.getElementById('allergen-preset-select');
   const used = new Set([
     ...S.safeFoods.map(f=>f.name),
+    ...(S.pendingFoods||[]).map(f=>f.name),
     ...S.allergenPool.map(a=>a.name),
     ...S.reactions.map(r=>r.name)
   ]);
