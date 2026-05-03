@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v2');
+console.log('BabyFood base estable PC cargada v3');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v1';
 const OLD_KEYS=[];
@@ -34,7 +34,7 @@ function enrichFood(f){if(!f)return null; return {iron:false,latex:false,...f};}
 function foodBadge(f){const e=enrichFood(f); let h=''; if(e.iron)h+='<span class="badge b-tag">hierro</span>'; if(e.latex)h+='<span class="badge b-tag">látex</span>'; return h;}
 function safeArr(a){return Array.isArray(a)?a:[];}
 function dedupe(arr){const seen=new Set(); return safeArr(arr).filter(x=>x&&x.name&&!seen.has(x.name)&&(seen.add(x.name),true)).map(enrichFood);}
-function ensureState(){S={...deepClone(INITIAL_STATE),...S}; ['safeFoods','pendingFoods','dairyFoods','allergenPool','reactions','testing','blocks'].forEach(k=>S[k]=dedupe(S[k])); S.calNotes=S.calNotes||{}; S.recipes=S.recipes||[]; S.shoppingWeekOffset=S.shoppingWeekOffset||0;}
+function ensureState(){S={...deepClone(INITIAL_STATE),...S}; ['safeFoods','pendingFoods','dairyFoods','allergenPool','reactions','testing'].forEach(k=>S[k]=dedupe(S[k])); S.blocks=Array.isArray(S.blocks)?S.blocks:[]; S.blocks=S.blocks.filter(b=>b&&b.startDate&&b.endDate).map(b=>({...b,foods:dedupe(b.foods||[]),newFood:b.newFood?enrichFood(b.newFood):null,dailyFruits:Array.isArray(b.dailyFruits)?dedupe(b.dailyFruits):[]})); S.calNotes=S.calNotes||{}; S.recipes=S.recipes||[]; S.shoppingWeekOffset=S.shoppingWeekOffset||0;}
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S));}catch(e){console.warn(e);}}
 function load(){try{const d=localStorage.getItem(STORAGE_KEY); if(d){S={...deepClone(INITIAL_STATE),...JSON.parse(d)}; ensureState(); return;} for(const k of OLD_KEYS){const o=localStorage.getItem(k); if(o){S={...deepClone(INITIAL_STATE),...JSON.parse(o)}; ensureState(); save(); return;}} ensureState();}catch(e){console.warn(e); ensureState();}}
 function allFoods(){return dedupe([...S.safeFoods,...S.pendingFoods,...S.dairyFoods,...S.allergenPool]);}
