@@ -1,49 +1,11 @@
-const CACHE_NAME = 'babyfood-v24';
-
-const urlsToCache = [
-  './',
-  './index.html'
-];
-
-// INSTALACIÓN
-self.addEventListener('install', event => {
-  self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(urlsToCache);
-    })
-  );
-});
-
-// ACTIVACIÓN (borra versiones antiguas)
+// BabyFood base limpia: SW desactivado. Este archivo solo elimina cachés y se desregistra.
+self.addEventListener('install', event => self.skipWaiting());
 self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            return caches.delete(key);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-// FETCH → network first (evita servir HTML viejo roto)
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, clone);
-        });
-        return response;
-      })
-      .catch(() => {
-        return caches.match(event.request);
-      })
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map(k => caches.delete(k)));
+    await self.registration.unregister();
+    const clientsList = await self.clients.matchAll({type: 'window'});
+    clientsList.forEach(client => client.navigate(client.url));
+  })());
 });

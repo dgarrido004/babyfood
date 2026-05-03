@@ -52,8 +52,8 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 
 <script>
 'use strict';
-const STORAGE_KEY='bf_v24_clean';
-const OLD_KEYS=['bf_v15_clean','bf_v3','bf_v4','bf_v5','bf_v6','bf_v7','bf_v8','bf_v9','bf_v10'];
+const STORAGE_KEY='bf_base_sin_sw_v1';
+const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -215,7 +215,20 @@ Object.assign(window, {
 });
 
 load(); checkBlockCompletions(); renderAlimentos(); renderGuia(); updateHeader();
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
+// Base limpia SIN service worker: desregistra cualquier SW antiguo y limpia cachés viejas.
+function cleanupOldServiceWorkers(){
+  try{
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.getRegistrations()
+        .then(regs=>Promise.all(regs.map(r=>r.unregister())))
+        .catch(()=>{});
+    }
+    if('caches' in window){
+      caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).catch(()=>{});
+    }
+  }catch(e){console.warn('No se pudo limpiar caché/SW antiguo', e);}
+}
+window.addEventListener('load', cleanupOldServiceWorkers);
 </script>
 </body>
 </html>
