@@ -1,7 +1,7 @@
-console.log('BabyFood base estable PC cargada v15');
+console.log('BabyFood base estable PC cargada v16');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v14';
-const OLD_KEYS=['bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
+const STORAGE_KEY='bf_base_estable_pc_v16';
+const OLD_KEYS=['bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -141,7 +141,7 @@ function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect()
 function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
-function renderFoodGroups(items, actionsCb){items=sortFoodsAZ(items); if(!items.length)return '<div class="empty">Sin alimentos</div>'; const groups={verdura:[],proteina:[],fruta:[]}; items.forEach(f=>(groups[f.cat]||groups.fruta).push(f)); let html=''; ['verdura','proteina','fruta'].forEach(cat=>{if(!groups[cat].length)return; html+=`<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`+groups[cat].map(f=>`<div class="food-row"><div><div class="food-name">${escapeHtml(f.name)}${foodBadge(f)}</div></div><div class="food-actions">${actionsCb(f)}</div></div>`).join('');}); return html;}
+function renderFoodGroups(items){items=sortFoodsAZ(items); if(!items.length)return '<div class="empty">Sin alimentos</div>'; const groups={verdura:[],proteina:[],fruta:[]}; items.forEach(f=>(groups[f.cat]||groups.fruta).push(f)); let html=''; ['verdura','proteina','fruta'].forEach(cat=>{if(!groups[cat].length)return; html+=`<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`+groups[cat].map(f=>`<div class="food-row food-row-click" data-action="openEditFood" data-name="${escapeAttr(f.name)}"><div><div class="food-name">${escapeHtml(f.name)}${foodBadge(f)}</div></div><div class="food-chevron">›</div></div>`).join('');}); return html;}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function escapeAttr(s){return escapeHtml(s);}
 
@@ -154,6 +154,23 @@ function findFoodPool(name){
   return null;
 }
 function poolLabel(pool){return {safeFoods:'Seguros',pendingFoods:'Pendientes',dairyFoods:'Lácteos bloqueados',reactions:'Reacciones'}[pool]||pool;}
+function renderFoodDetailActions(pool,name){
+  const el=document.getElementById('edit-food-actions');
+  if(!el)return;
+  const n=escapeAttr(name);
+  let html='';
+  if(pool==='safeFoods'){
+    html=`<button class="btn btn-full btn-danger" data-action="markReactionFromSafe" data-name="${n}">Registrar reacción</button><button class="btn btn-full" data-action="removeSafe" data-name="${n}">Mover a pendientes</button>`;
+  }else if(pool==='pendingFoods'){
+    html=`<button class="btn btn-full btn-success" data-action="movePendingToSafe" data-name="${n}">Marcar como seguro</button><button class="btn btn-full btn-danger" data-action="markReactionFromPending" data-name="${n}">Registrar reacción</button><button class="btn btn-full" data-action="removePending" data-name="${n}">Eliminar alimento</button>`;
+  }else if(pool==='dairyFoods'){
+    html=`<button class="btn btn-full" data-action="removeDairy" data-name="${n}">Eliminar lácteo</button>`;
+  }else if(pool==='reactions'){
+    html=`<button class="btn btn-full btn-success" data-action="retryReaction" data-name="${n}">Reintentar: pasar a pendientes</button><button class="btn btn-full" data-action="showReactionInfo" data-name="${n}">Ver reacción</button>`;
+  }
+  el.innerHTML=html?`<div class="divider"></div><div class="mini-title">Acciones</div>${html}<div class="divider"></div>`:'';
+}
+
 function openEditFood(name){
   const found=findFoodPool(name);
   if(!found){alert('No encuentro ese alimento.');return;}
@@ -167,6 +184,7 @@ function openEditFood(name){
   document.getElementById('edit-food-dense').checked=!!f.dense;
   document.getElementById('edit-food-hydrating').checked=!!f.hydrating;
   document.getElementById('edit-food-current').textContent=`Lista actual: ${poolLabel(found.pool)}`;
+  renderFoodDetailActions(found.pool,f.name);
   openModal('modal-edit-food');
 }
 function renameInBlocks(oldName,newFood){
@@ -201,10 +219,10 @@ function saveEditedFood(){
   renameInReactionHistory(oldName,edited);
   ensureState(); save(); closeModal('modal-edit-food'); renderAlimentos(); renderPlan(); renderCalendario();
 }
-function renderAlimentos(){ensureState();renderStatsAlimentos();document.getElementById('safe-list').innerHTML=renderFoodGroups(S.safeFoods,f=>`<button class="btn btn-sm btn-danger" data-action="markReactionFromSafe" data-name="${escapeAttr(f.name)}">Reacción</button><button class="btn btn-sm" data-action="openEditFood" data-name="${escapeAttr(f.name)}">Editar</button><button class="btn btn-sm" data-action="removeSafe" data-name="${escapeAttr(f.name)}">✕</button>`);document.getElementById('pending-list').innerHTML=renderFoodGroups(S.pendingFoods,f=>`<button class="btn btn-sm btn-success" data-action="movePendingToSafe" data-name="${escapeAttr(f.name)}">Seguro</button><button class="btn btn-sm btn-danger" data-action="markReactionFromPending" data-name="${escapeAttr(f.name)}">Reacción</button><button class="btn btn-sm" data-action="openEditFood" data-name="${escapeAttr(f.name)}">Editar</button><button class="btn btn-sm" data-action="removePending" data-name="${escapeAttr(f.name)}">✕</button>`);renderDairyList();renderReactionsList();updateHeader();}
-function renderDairyList(){const m=monthDiffFromBirth(); let html=''; const can9=m!==null&&m>=9, can12=m!==null&&m>=12; if(m===null) html+=`<div class="info-box info-amber">Configura la fecha de nacimiento para desbloquear lácteos por edad.</div>`; if(can9&&S.dairyFoods.some(f=>Number(f.availableMonth||9)<=9)) html+=`<div class="info-box info-green">🧀 Lácteos desbloqueados: yogur natural y queso tierno. Al activarlos pasarán a pendientes.</div><button class="btn btn-full btn-success" data-action="activateDairy" data-month="9">Añadir lácteos de 9 meses a pendientes</button>`; if(can12&&S.dairyFoods.some(f=>Number(f.availableMonth||9)<=12)) html+=`<div class="info-box info-green">🥛 Leche de vaca disponible. Pasará a pendientes.</div><button class="btn btn-full btn-success" data-action="activateDairy" data-month="12">Añadir lácteos de 12 meses a pendientes</button>`; html+=S.dairyFoods.length?sortFoodsAZ(S.dairyFoods).map(f=>`<div class="food-row"><div><div class="food-name">${escapeHtml(f.name)}</div><div class="food-meta">Disponible desde ${f.availableMonth||9} meses</div></div><div class="food-actions"><button class="btn btn-sm" data-action="openEditFood" data-name="${escapeAttr(f.name)}">Editar</button><button class="btn btn-sm" data-action="removeDairy" data-name="${escapeAttr(f.name)}">✕</button></div></div>`).join(''):'<div class="empty">No hay lácteos bloqueados</div>'; document.getElementById('dairy-list').innerHTML=html;}
+function renderAlimentos(){ensureState();renderStatsAlimentos();document.getElementById('safe-list').innerHTML=renderFoodGroups(S.safeFoods);document.getElementById('pending-list').innerHTML=renderFoodGroups(S.pendingFoods);renderDairyList();renderReactionsList();updateHeader();}
+function renderDairyList(){const m=monthDiffFromBirth(); let html=''; const can9=m!==null&&m>=9, can12=m!==null&&m>=12; if(m===null) html+=`<div class="info-box info-amber">Configura la fecha de nacimiento para desbloquear lácteos por edad.</div>`; if(can9&&S.dairyFoods.some(f=>Number(f.availableMonth||9)<=9)) html+=`<div class="info-box info-green">🧀 Lácteos desbloqueados: yogur natural y queso tierno. Al activarlos pasarán a pendientes.</div><button class="btn btn-full btn-success" data-action="activateDairy" data-month="9">Añadir lácteos de 9 meses a pendientes</button>`; if(can12&&S.dairyFoods.some(f=>Number(f.availableMonth||9)<=12)) html+=`<div class="info-box info-green">🥛 Leche de vaca disponible. Pasará a pendientes.</div><button class="btn btn-full btn-success" data-action="activateDairy" data-month="12">Añadir lácteos de 12 meses a pendientes</button>`; html+=S.dairyFoods.length?sortFoodsAZ(S.dairyFoods).map(f=>`<div class="food-row food-row-click" data-action="openEditFood" data-name="${escapeAttr(f.name)}"><div><div class="food-name">${escapeHtml(f.name)}${foodBadge(f)}</div><div class="food-meta">Disponible desde ${f.availableMonth||9} meses</div></div><div class="food-chevron">›</div></div>`).join(''):'<div class="empty">No hay lácteos bloqueados</div>'; document.getElementById('dairy-list').innerHTML=html;}
 function renderAllergenPoolList(){const el=document.getElementById('allergen-pool-list'); if(!el)return; let arr=orderAllergens(allAllergenFoods()); el.innerHTML=arr.length?renderFoodGroups(arr,f=>`<button class="btn btn-sm btn-danger" data-action="markReactionFromAny" data-name="${escapeAttr(f.name)}">Reacción</button><button class="btn btn-sm" data-action="openEditFood" data-name="${escapeAttr(f.name)}">Editar</button>`):'<div class="empty">No hay alérgenos potenciales</div>';}
-function renderReactionsList(){const el=document.getElementById('reactions-list'); if(!S.reactions.length){el.innerHTML='<div class="empty">Sin reacciones activas 🎉</div>';return;} el.innerHTML=sortFoodsAZ(S.reactions).map(r=>`<div class="food-row"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge b-reaction" data-action="showReactionInfo" data-name="${escapeAttr(r.name)}">Reacción</span></div><div class="food-meta">${activeReactionInfo(r.name)?.date||r.date||''} · ${CAT_LABEL[r.cat]||'Sin categoría'}</div></div><div class="food-actions"><button class="btn btn-sm btn-success" data-action="retryReaction" data-name="${escapeAttr(r.name)}">Reintentar</button></div></div>`).join('');}
+function renderReactionsList(){const el=document.getElementById('reactions-list'); if(!S.reactions.length){el.innerHTML='<div class="empty">Sin reacciones activas 🎉</div>';return;} el.innerHTML=sortFoodsAZ(S.reactions).map(r=>`<div class="food-row food-row-click" data-action="openEditFood" data-name="${escapeAttr(r.name)}"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge b-reaction" data-action="showReactionInfo" data-name="${escapeAttr(r.name)}">Reacción</span></div><div class="food-meta">${activeReactionInfo(r.name)?.date||r.date||''} · ${CAT_LABEL[r.cat]||'Sin categoría'}</div></div><div class="food-chevron">›</div></div>`).join('');}
 function foodFromForm(prefix){return {name:normalizeName(document.getElementById(prefix+'-name').value),cat:document.getElementById(prefix+'-cat')?.value||'proteina',iron:!!document.getElementById(prefix+'-iron')?.checked,latex:!!document.getElementById(prefix+'-latex')?.checked};}
 function clearForm(prefix){['name','iron','latex'].forEach(k=>{const el=document.getElementById(prefix+'-'+k); if(!el)return; if(el.type==='checkbox')el.checked=false; else el.value='';});}
 function addSafeFood(){const f=foodFromForm('safe'); if(!f.name){alert('Escribe el nombre');return;} addFoodTo('safeFoods',f); clearForm('safe'); closeModal('modal-add-safe');}
@@ -236,10 +254,10 @@ function isBaseFood(f){f=enrichFood(f); const base=new Set(['Calabacín','Calaba
 function isCerealOrDenseBase(f){f=enrichFood(f); return ['Arroz','Avena','Pasta','Patata','Boniato','Maíz','Quinoa','Pan sin sal'].includes(f.name);}
 function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); let score=0; const use=counts[f.name]||0; const rec=recent[f.name]||0; const base=isBaseFood(f); const protein=f.cat==='proteina'; const fruit=f.cat==='fruta'; const denseBase=isCerealOrDenseBase(f);
   // Penalización progresiva, no bloqueo: las bases vegetales pueden repetirse más.
-  let useWeight=base?5:(protein?14:(fruit?12:(denseBase?13:9)));
-  let recentWeight=base?8:(protein?28:(fruit?30:(denseBase?24:16)));
+  let useWeight=base?5:(protein?14:(fruit?16:(denseBase?28:9)));
+  let recentWeight=base?8:(protein?28:(fruit?38:(denseBase?65:16)));
   score+=use*useWeight; score+=rec*recentWeight;
-  if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?25:90;
+  if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?25:(denseBase?140:90);
   if(opts.preferIron&&f.iron)score-=protein?14:8;
   if(opts.needsHydrating&&f.hydrating)score-=18;
   if(opts.avoidDense&&f.dense)score+=denseBase?55:35;
@@ -261,7 +279,11 @@ function buildLunchFromSafe(existing=[], extraFood=null){const usedSafe=new Set(
   // 2) Segunda verdura: si ya hay denso, preferimos agua/hidratante; si no, variamos.
   let secondPool=veggies;
   if(hasDense()){const hyd=veggies.filter(f=>f.hydrating); if(hyd.length)secondPool=hyd;}
-  else if(otherVeggies.length) secondPool=otherVeggies;
+  else if(otherVeggies.length){
+    const nonDense=otherVeggies.filter(f=>!f.dense);
+    const denseRecent=safeArr(existing).slice(-5).reduce((n,b)=>n+dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).filter(f=>isCerealOrDenseBase(f)).length,0);
+    secondPool=(nonDense.length && denseRecent>=2)?nonDense:otherVeggies;
+  }
   const secondV=pickBalanced(secondPool,usedSafe,counts,recent,{avoidNames,needsHydrating:hasDense(),preferHydrating:hasDense(),avoidDense:hasDense()}); if(secondV){lunch.push(secondV);usedSafe.add(secondV.name);}
   // 3) Proteína: fuerte rotación y preferencia de hierro, sin bloquear si hay pocas.
   const protein=pickBalanced(proteins,usedSafe,counts,recent,{avoidNames,preferIron:true,avoidDense:hasDense()}); if(protein){lunch.push(protein);usedSafe.add(protein.name);}
@@ -377,7 +399,11 @@ document.addEventListener('click', function(e){
   if(typeof fn === 'function'){
     e.preventDefault();
     e.stopPropagation();
+    const insideEdit = !!btn.closest('#modal-edit-food');
     fn(btn.dataset.name || btn.dataset.month);
+    if(insideEdit && !['saveEditedFood','showReactionInfo','openEditFood'].includes(btn.dataset.action)){
+      closeModal('modal-edit-food');
+    }
   }
 });
 
