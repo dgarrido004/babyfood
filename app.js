@@ -1,6 +1,6 @@
-console.log('BabyFood base estable PC cargada v9');
+console.log('BabyFood base estable PC cargada v10');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v9';
+const STORAGE_KEY='bf_base_estable_pc_v10';
 const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
@@ -24,7 +24,8 @@ const DEFAULT_ALLERGENS_LIST=[
 {name:'Fresa',cat:'fruta'}];
 const INITIAL_STATE={
  babyBirthDate:null,birthDateSkipped:false,shoppingWeekOffset:0,calNotes:{},testing:[],blocks:[],recipes:[],
- safeFoods:[
+ safeFoods:[],
+ pendingFoods:[
   {name:'Zanahoria',cat:'verdura'},
   {name:'Calabaza',cat:'verdura'},
   {name:'Calabacín',cat:'verdura'},
@@ -36,15 +37,6 @@ const INITIAL_STATE={
   {name:'Puerro',cat:'verdura'},
   {name:'Arroz',cat:'verdura'},
   {name:'Maíz',cat:'verdura'},
-  {name:'Manzana',cat:'fruta'},
-  {name:'Pera',cat:'fruta'},
-  {name:'Plátano',cat:'fruta'},
-  {name:'Melón',cat:'fruta'},
-  {name:'Sandía',cat:'fruta'},
-  {name:'Pollo',cat:'proteina',iron:true},
-  {name:'Pavo',cat:'proteina',iron:true}
- ],
- pendingFoods:[
   {name:'Guisantes',cat:'verdura',iron:true},
   {name:'Tomate',cat:'verdura'},
   {name:'Berenjena',cat:'verdura'},
@@ -53,12 +45,19 @@ const INITIAL_STATE={
   {name:'Avena',cat:'verdura'},
   {name:'Pasta',cat:'verdura'},
   {name:'Quinoa',cat:'verdura',iron:true},
+  {name:'Manzana',cat:'fruta'},
+  {name:'Pera',cat:'fruta'},
+  {name:'Plátano',cat:'fruta'},
+  {name:'Melón',cat:'fruta'},
+  {name:'Sandía',cat:'fruta'},
   {name:'Naranja',cat:'fruta'},
   {name:'Mandarina',cat:'fruta'},
   {name:'Mango',cat:'fruta'},
   {name:'Ciruela',cat:'fruta'},
   {name:'Albaricoque',cat:'fruta'},
   {name:'Aguacate',cat:'fruta'},
+  {name:'Pollo',cat:'proteina',iron:true},
+  {name:'Pavo',cat:'proteina',iron:true},
   {name:'Ternera',cat:'proteina',iron:true},
   {name:'Cordero',cat:'proteina',iron:true},
   {name:'Cerdo magro',cat:'proteina',iron:true},
@@ -145,7 +144,7 @@ function addPendingFood(){const f=foodFromForm('pending'); if(!f.name){alert('Es
 function addDairyFood(){const name=normalizeName(document.getElementById('dairy-name').value); if(!name){alert('Escribe el nombre');return;} const f={name,cat:'proteina',availableMonth:Number(document.getElementById('dairy-age').value)}; addFoodTo('dairyFoods',f); document.getElementById('dairy-name').value=''; closeModal('modal-add-dairy');}
 function addAllergenToPool(){const preset=document.getElementById('allergen-preset-select').value; const custom=normalizeName(document.getElementById('allergen-custom').value); const found=DEFAULT_ALLERGENS_LIST.find(a=>a.name===preset); const f={...(found||{}),name:custom||preset,cat:document.getElementById('allergen-cat').value,iron:!!document.getElementById('allergen-iron').checked||!!found?.iron,latex:!!document.getElementById('allergen-latex').checked||!!found?.latex}; if(!f.name){alert('Selecciona o escribe un alérgeno');return;} addFoodTo('allergenPool',f); document.getElementById('allergen-custom').value=''; closeModal('modal-add-allergen');}
 function addReactionManual(){const sel=document.getElementById('reaction-food-select').value; const custom=normalizeName(document.getElementById('reaction-food-custom').value); const name=custom||sel; if(!name){alert('Selecciona o escribe un alimento');return;} const food=allFoods().find(f=>f.name===name)||{name,cat:'verdura'}; removeEverywhere(name); addReactionRecord(food,'manual'); save(); closeModal('modal-add-reaction'); renderAlimentos(); rebuildFromTodayIfNeeded();}
-function removeSafe(n){if(!confirm(`¿Quitar "${n}" de seguros?`))return; S.safeFoods=S.safeFoods.filter(f=>f.name!==n); save(); renderAlimentos(); rebuildFromTodayIfNeeded();}
+function removeSafe(n){const f=S.safeFoods.find(x=>x.name===n); if(!f)return; if(!confirm(`¿Mover "${n}" de seguros a pendientes?`))return; S.safeFoods=S.safeFoods.filter(x=>x.name!==n); if(!isPending(n))S.pendingFoods.push(enrichFood(f)); save(); renderAlimentos(); rebuildFromTodayIfNeeded();}
 function removePending(n){if(!confirm(`¿Eliminar "${n}" de pendientes?`))return; S.pendingFoods=S.pendingFoods.filter(f=>f.name!==n); save(); renderAlimentos(); rebuildFromTodayIfNeeded();}
 function removeDairy(n){if(!confirm(`¿Eliminar "${n}" de lácteos?`))return; S.dairyFoods=S.dairyFoods.filter(f=>f.name!==n); save(); renderAlimentos();}
 function removeAllergenPool(n){if(!confirm(`¿Quitar "${n}" de alérgenos?`))return; S.allergenPool=S.allergenPool.filter(f=>f.name!==n); save(); renderAlimentos(); rebuildFromTodayIfNeeded();}
