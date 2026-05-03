@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v22');
+console.log('BabyFood base estable PC cargada v23');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v19';
 const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
@@ -283,20 +283,25 @@ function isCerealOrDenseBase(f){f=enrichFood(f); return !!f.grain || ['Patata','
 function recentGrainBlocks(blocks=[],limit=3){return safeArr(blocks).slice(-limit).reduce((n,b)=>n+(dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).some(f=>isGrain(f))?1:0),0);}
 function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); let score=0; const use=counts[f.name]||0; const rec=recent[f.name]||0; const base=isBaseFood(f); const protein=f.cat==='proteina'; const fruit=f.cat==='fruta'; const grain=isGrain(f); const denseBase=isCerealOrDenseBase(f);
   // Penalización progresiva, no bloqueo: las bases vegetales pueden repetirse más.
-  let useWeight=base?5:(protein?14:(fruit?18:(grain?42:(denseBase?46:(f.cat==='verdura'?24:12)))));
-  let recentWeight=base?8:(protein?28:(fruit?42:(grain?95:(denseBase?110:(f.cat==='verdura'?46:20)))));
+  let useWeight=base?6:(protein?18:(fruit?22:(grain?46:(denseBase?52:(f.cat==='verdura'?32:16)))));
+  let recentWeight=base?10:(protein?34:(fruit?48:(grain?105:(denseBase?120:(f.cat==='verdura'?58:24)))));
   score+=use*useWeight; score+=rec*recentWeight;
-  if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?25:(denseBase?140:90);
-  if(opts.avoidGrain&&grain)score+=220;
-  if(opts.preferIron&&f.iron)score-=protein?14:8;
-  // Látex y alérgeno son etiquetas de control/aviso, no deben actuar como prioridad del generador.
-  // Si el alimento ya es seguro puede usarse, pero con ligera penalización para que no domine el plan.
-  if(f.latex)score+=65+(use*12)+(rec*30);
-  if(f.allergen)score+=55+(use*10)+(rec*26);
-  if(opts.needsHydrating&&f.hydrating)score-=18;
-  if(opts.avoidDense&&f.dense)score+=denseBase?90:45; if(f.name==='Patata')score+=(use*22)+(rec*50);
-  if(opts.preferBase&&base)score-=8;
-  if(opts.preferHydrating&&f.hydrating)score-=10;
+  // Memoria global: evita que un alimento se convierta en comodín durante meses.
+  const globalWeight=base?0.20:(protein?1.15:(fruit?1.45:(grain?2.2:(denseBase?2.4:1.8))));
+  score+=use*use*globalWeight;
+  if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?30:(denseBase?155:105);
+  if(opts.avoidGrain&&grain)score+=240;
+  // Hierro importa, pero no debe convertir alimentos marcados manualmente en comodín.
+  if(opts.preferIron&&f.iron)score-=protein?6:2;
+  if(opts.preferIron&&f.iron&&use>9)score+=(use-9)*34;
+  // Látex y alérgeno son etiquetas de control/aviso, nunca prioridad.
+  // Si ya son seguros pueden usarse, pero se penalizan para no dominar el plan.
+  if(f.latex)score+=120+(use*34)+(rec*60)+(use*use*1.6);
+  if(f.allergen)score+=100+(use*28)+(rec*54)+(use*use*1.35);
+  if(opts.needsHydrating&&f.hydrating)score-=10;
+  if(opts.avoidDense&&f.dense)score+=denseBase?105:55; if(f.name==='Patata')score+=(use*30)+(rec*60)+(use*use*0.9);
+  if(opts.preferBase&&base)score-=6;
+  if(opts.preferHydrating&&f.hydrating)score-=6;
   if(opts.sameCatPenalty)score+=opts.sameCatPenalty;
   return score;}
 function pickBalanced(arr, used=new Set(), counts={}, recent={}, opts={}){let list=dedupe(arr).filter(f=>!used.has(f.name)); if(!list.length)return null; const avoid=opts.avoidNames||new Set(); let preferred=list.filter(f=>!avoid.has(f.name)); if(preferred.length)list=preferred; list.sort((a,b)=>choiceScore(a,counts,recent,opts)-choiceScore(b,counts,recent,opts)||a.name.localeCompare(b.name,'es')); return list[0];}
@@ -304,6 +309,7 @@ function pickNewFood(arr, usedNew=new Set(), counts={}, recent={}){arr=dedupe(ar
 function getSafeByCat(cat){return dedupe(S.safeFoods).filter(f=>f.cat===cat&&passesPlanFilters(f));}
 function safeFruits(){return getSafeByCat('fruta');}
 function getUsedNewFoodsInMonth(startDate){const mb=monthBounds(startDate); return new Set(S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end)).map(b=>b.newFood?.name).filter(Boolean));}
+function getUsedNewFoodsAll(){return new Set(S.blocks.map(b=>b.newFood?.name).filter(Boolean));}
 function nextBlockTypeForStart(startDate){const prev=S.blocks.filter(b=>b.endDate<startDate).sort((a,b)=>b.endDate.localeCompare(a.endDate))[0]; if(!prev)return 'normal'; if(prev.type==='normal' && pendingAllergens().length)return 'allergen'; return 'normal';}
 function buildLunchFromSafe(existing=[], extraFood=null){const usedSafe=new Set(); const counts=usageCounts(existing); const recent=recentUseMap(existing,5); const avoidNames=lastBlockFoodNames(existing); let lunch=[]; const veggies=getSafeByCat('verdura'); const cereals=getSafeByCat('cereal'); const proteins=getSafeByCat('proteina'); const baseVeggies=veggies.filter(f=>isBaseFood(f)); const otherVeggies=veggies.filter(f=>!isBaseFood(f));
   const hasDense=()=>dedupe([...lunch,...(extraFood?[extraFood]:[])]).some(f=>f.dense);
@@ -329,7 +335,7 @@ function buildRecipe(type, existing, usedNew){const recent=recentUseMap(existing
 function buildSafeOnlyRecipe(existing=[]){const lunch=buildLunchFromSafe(existing,null); if(!lunch)return null; return {foods:lunch,newFood:null};}
 function hasAvailableNormal(usedNew){return normalPendingFoods().some(f=>!usedNew.has(f.name));}
 function hasAvailableAllergen(usedNew){return orderAllergens(pendingAllergens()).some(f=>!usedNew.has(f.name));}
-function generateBlocks(startDate,count=10,endDate=null){let blocks=[]; let current=startDate; let type=nextBlockTypeForStart(startDate); let usedNew=getUsedNewFoodsInMonth(startDate); for(let i=0;i<count;i++){if(endDate&&current>endDate)break; const context=[...S.blocks,...blocks]; if(type==='allergen'&&!hasAvailableAllergen(usedNew))type='normal'; if(type==='normal'&&!hasAvailableNormal(usedNew)&&hasAvailableAllergen(usedNew))type='allergen'; let rec=buildRecipe(type,context,usedNew); if(!rec){const alt=type==='allergen'?'normal':'allergen'; if((alt==='normal'&&hasAvailableNormal(usedNew))||(alt==='allergen'&&hasAvailableAllergen(usedNew))){type=alt; rec=buildRecipe(type,context,usedNew);} }
+function generateBlocks(startDate,count=10,endDate=null){let blocks=[]; let current=startDate; let type=nextBlockTypeForStart(startDate); let usedNew=getUsedNewFoodsAll(); for(let i=0;i<count;i++){if(endDate&&current>endDate)break; const context=[...S.blocks,...blocks]; if(type==='allergen'&&!hasAvailableAllergen(usedNew))type='normal'; if(type==='normal'&&!hasAvailableNormal(usedNew)&&hasAvailableAllergen(usedNew))type='allergen'; let rec=buildRecipe(type,context,usedNew); if(!rec){const alt=type==='allergen'?'normal':'allergen'; if((alt==='normal'&&hasAvailableNormal(usedNew))||(alt==='allergen'&&hasAvailableAllergen(usedNew))){type=alt; rec=buildRecipe(type,context,usedNew);} }
     if(!rec){rec=buildSafeOnlyRecipe(context); type='normal';}
     if(!rec)break;
     const bEnd=endDate&&addDays(current,2)>endDate?endDate:addDays(current,2);
