@@ -1,17 +1,18 @@
-console.log('BabyFood base estable PC cargada v16');
+console.log('BabyFood base estable PC cargada v17');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v16';
-const OLD_KEYS=['bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
+const STORAGE_KEY='bf_base_estable_pc_v17';
+const OLD_KEYS=['bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS_SHORT=['L','M','X','J','V','S','D'];
 const DENSE_FOODS=new Set(['Patata','Zanahoria','Boniato','Arroz','Pasta','Sémola','Pan sin sal','Maíz','Plátano','Garbanzo','Alubia blanca','Alubia roja','Lenteja roja']);
 const HYDRATING_FOODS=new Set(['Pera','Ciruela','Naranja','Mandarina','Sandía','Melón','Mango','Calabacín','Tomate','Aguacate','Judía verde','Brócoli']);
+const GRAIN_FOODS=new Set(['Arroz','Avena','Maíz','Pasta','Trigo / gluten','Quinoa','Pan sin sal','Sémola']);
 let PLAN_FILTERS={avoidLatex:false,avoidDairy:false};
 const DEFAULT_ALLERGENS_LIST=[
 {name:'Huevo',cat:'proteina',iron:true},
-{name:'Trigo / gluten',cat:'verdura'},
+{name:'Trigo / gluten',cat:'verdura',allergen:true,grain:true},
 {name:'Soja',cat:'proteina',iron:true},
 {name:'Cacahuete',cat:'proteina',iron:true},
 {name:'Almendra',cat:'proteina'},
@@ -38,16 +39,16 @@ const INITIAL_STATE={
   {name:'Coliflor',cat:'verdura'},
   {name:'Judía verde',cat:'verdura'},
   {name:'Puerro',cat:'verdura'},
-  {name:'Arroz',cat:'verdura'},
-  {name:'Maíz',cat:'verdura'},
+  {name:'Arroz',cat:'verdura',grain:true},
+  {name:'Maíz',cat:'verdura',grain:true},
   {name:'Guisantes',cat:'verdura',iron:true},
   {name:'Tomate',cat:'verdura'},
   {name:'Berenjena',cat:'verdura'},
   {name:'Pimiento',cat:'verdura'},
   {name:'Cebolla',cat:'verdura'},
-  {name:'Avena',cat:'verdura'},
-  {name:'Pasta',cat:'verdura'},
-  {name:'Quinoa',cat:'verdura',iron:true},
+  {name:'Avena',cat:'verdura',grain:true},
+  {name:'Pasta',cat:'verdura',grain:true},
+  {name:'Quinoa',cat:'verdura',iron:true,grain:true},
   {name:'Manzana',cat:'fruta'},
   {name:'Pera',cat:'fruta'},
   {name:'Plátano',cat:'fruta'},
@@ -76,7 +77,7 @@ const INITIAL_STATE={
  ],
  allergenPool:[
   {name:'Huevo',cat:'proteina',iron:true},
-  {name:'Trigo / gluten',cat:'verdura'},
+  {name:'Trigo / gluten',cat:'verdura',allergen:true,grain:true},
   {name:'Soja',cat:'proteina',iron:true},
   {name:'Cacahuete',cat:'proteina',iron:true},
   {name:'Almendra',cat:'proteina'},
@@ -113,8 +114,8 @@ function monthDiffFromBirth(){if(!S.babyBirthDate)return null; const b=parseDate
 function ageText(){if(!S.babyBirthDate)return 'Edad no configurada'; const w=Math.floor(daysBetween(S.babyBirthDate,today())/7); const m=monthDiffFromBirth(); return `Semana ${w} · ${m} meses aprox.`;}
 function requireBirthDateForPlan(){if(S.babyBirthDate)return true; alert('Antes de generar el plan debes indicar la fecha de nacimiento del bebé.'); closeModal('modal-setup-plan'); openModal('modal-birthdate'); return false;}
 function autoPromptDairyUnlock(){const m=monthDiffFromBirth(); if(m===null)return; if(m>=9&&!S.dairyPromptSeen9&&S.dairyFoods.some(f=>Number(f.availableMonth||9)===9)){S.dairyPromptSeen9=true; save(); setTimeout(()=>{if(confirm('🧀 Lácteos desbloqueados\n\nYa puedes introducir yogur natural y queso tierno. ¿Quieres añadirlos a pendientes?'))activateDairy(9);},250);} if(m>=12&&!S.dairyPromptSeen12&&S.dairyFoods.some(f=>Number(f.availableMonth||9)===12)){S.dairyPromptSeen12=true; save(); setTimeout(()=>{if(confirm('🥛 Leche de vaca disponible\n\nYa puedes añadirla a pendientes. ¿Quieres hacerlo ahora?'))activateDairy(12);},250);}}
-function enrichFood(f){if(!f)return null; const out={iron:false,latex:false,allergen:false,dense:false,hydrating:false,...f}; if(DENSE_FOODS.has(out.name))out.dense=true; if(HYDRATING_FOODS.has(out.name))out.hydrating=true; return out;}
-function foodBadge(f){const e=enrichFood(f); let h=''; const ar=activeReactionInfo(e.name); if(ar)h+=`<span class="badge b-reaction" data-action="showReactionInfo" data-name="${escapeAttr(e.name)}" title="Ver reacción">Reacción</span>`; if(e.iron)h+='<span class="badge b-tag">hierro</span>'; if(e.allergen)h+='<span class="badge b-allergen">alérgeno</span>'; if(e.latex)h+='<span class="badge b-tag">látex</span>'; if(e.dense)h+='<span class="badge b-tag">denso</span>'; if(e.hydrating)h+='<span class="badge b-tag">agua</span>'; return h;}
+function enrichFood(f){if(!f)return null; const out={iron:false,latex:false,allergen:false,dense:false,hydrating:false,grain:false,...f}; if(DENSE_FOODS.has(out.name))out.dense=true; if(HYDRATING_FOODS.has(out.name))out.hydrating=true; if(GRAIN_FOODS.has(out.name))out.grain=true; return out;}
+function foodBadge(f){const e=enrichFood(f); let h=''; const ar=activeReactionInfo(e.name); if(ar)h+=`<span class="badge b-reaction" data-action="showReactionInfo" data-name="${escapeAttr(e.name)}" title="Ver reacción">Reacción</span>`; if(e.iron)h+='<span class="badge b-tag">hierro</span>'; if(e.allergen)h+='<span class="badge b-allergen">alérgeno</span>'; if(e.latex)h+='<span class="badge b-tag">látex</span>'; if(e.dense)h+='<span class="badge b-tag">denso</span>'; if(e.hydrating)h+='<span class="badge b-tag">agua</span>'; if(e.grain)h+='<span class="badge b-tag">cereal</span>'; return h;}
 function safeArr(a){return Array.isArray(a)?a:[];}
 function dedupe(arr){const seen=new Set(); return safeArr(arr).filter(x=>x&&x.name&&!seen.has(x.name)&&(seen.add(x.name),true)).map(enrichFood);}
 function sortFoodsAZ(arr){return dedupe(arr).sort((a,b)=>String(a.name).localeCompare(String(b.name),'es',{sensitivity:'base'}));}
@@ -251,13 +252,16 @@ function usageCounts(blocks=[]){const c={}; safeArr(blocks).forEach(b=>{safeArr(
 function recentUseMap(blocks=[],limit=4){const c={}; safeArr(blocks).slice(-limit).forEach((b,idx)=>{const weight=limit-idx; safeArr(b.foods).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight;}); safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight;}); if(b.newFood&&b.newFood.name)c[b.newFood.name]=(c[b.newFood.name]||0)+weight;}); return c;}
 function lastBlockFoodNames(blocks=[]){const b=safeArr(blocks).slice(-1)[0]; const set=new Set(); if(!b)return set; safeArr(b.foods).forEach(f=>{if(f&&f.name)set.add(f.name);}); safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)set.add(f.name);}); if(b.newFood&&b.newFood.name)set.add(b.newFood.name); return set;}
 function isBaseFood(f){f=enrichFood(f); const base=new Set(['Calabacín','Calabaza','Judía verde','Puerro','Zanahoria','Coliflor','Tomate','Berenjena','Cebolla']); return f.cat==='verdura'&&base.has(f.name);}
-function isCerealOrDenseBase(f){f=enrichFood(f); return ['Arroz','Avena','Pasta','Patata','Boniato','Maíz','Quinoa','Pan sin sal'].includes(f.name);}
-function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); let score=0; const use=counts[f.name]||0; const rec=recent[f.name]||0; const base=isBaseFood(f); const protein=f.cat==='proteina'; const fruit=f.cat==='fruta'; const denseBase=isCerealOrDenseBase(f);
+function isGrain(f){f=enrichFood(f); return !!f.grain;}
+function isCerealOrDenseBase(f){f=enrichFood(f); return !!f.grain || ['Patata','Boniato'].includes(f.name);}
+function recentGrainBlocks(blocks=[],limit=3){return safeArr(blocks).slice(-limit).reduce((n,b)=>n+(dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).some(f=>isGrain(f))?1:0),0);}
+function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); let score=0; const use=counts[f.name]||0; const rec=recent[f.name]||0; const base=isBaseFood(f); const protein=f.cat==='proteina'; const fruit=f.cat==='fruta'; const grain=isGrain(f); const denseBase=isCerealOrDenseBase(f);
   // Penalización progresiva, no bloqueo: las bases vegetales pueden repetirse más.
-  let useWeight=base?5:(protein?14:(fruit?16:(denseBase?28:9)));
-  let recentWeight=base?8:(protein?28:(fruit?38:(denseBase?65:16)));
+  let useWeight=base?5:(protein?14:(fruit?16:(grain?42:(denseBase?28:9))));
+  let recentWeight=base?8:(protein?28:(fruit?38:(grain?95:(denseBase?65:16))));
   score+=use*useWeight; score+=rec*recentWeight;
   if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?25:(denseBase?140:90);
+  if(opts.avoidGrain&&grain)score+=220;
   if(opts.preferIron&&f.iron)score-=protein?14:8;
   if(opts.needsHydrating&&f.hydrating)score-=18;
   if(opts.avoidDense&&f.dense)score+=denseBase?55:35;
@@ -271,26 +275,25 @@ function getSafeByCat(cat){return dedupe(S.safeFoods).filter(f=>f.cat===cat&&pas
 function safeFruits(){return getSafeByCat('fruta');}
 function getUsedNewFoodsInMonth(startDate){const mb=monthBounds(startDate); return new Set(S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end)).map(b=>b.newFood?.name).filter(Boolean));}
 function nextBlockTypeForStart(startDate){const prev=S.blocks.filter(b=>b.endDate<startDate).sort((a,b)=>b.endDate.localeCompare(a.endDate))[0]; if(!prev)return 'normal'; if(prev.type==='normal' && pendingAllergens().length)return 'allergen'; return 'normal';}
-function buildLunchFromSafe(existing=[], extraFood=null){const usedSafe=new Set(); const counts=usageCounts(existing); const recent=recentUseMap(existing,5); const avoidNames=lastBlockFoodNames(existing); let lunch=[]; const veggies=getSafeByCat('verdura'); const proteins=getSafeByCat('proteina'); const baseVeggies=veggies.filter(f=>isBaseFood(f)); const otherVeggies=veggies.filter(f=>!isBaseFood(f));
+function buildLunchFromSafe(existing=[], extraFood=null){const usedSafe=new Set(); const counts=usageCounts(existing); const recent=recentUseMap(existing,5); const avoidNames=lastBlockFoodNames(existing); let lunch=[]; const veggies=getSafeByCat('verdura'); const proteins=getSafeByCat('proteina'); const baseVeggies=veggies.filter(f=>isBaseFood(f)); const grainVeggies=veggies.filter(f=>isGrain(f)); const otherVeggies=veggies.filter(f=>!isBaseFood(f)&&!isGrain(f));
   const hasDense=()=>dedupe([...lunch,...(extraFood?[extraFood]:[])]).some(f=>f.dense);
   const hasHydrating=()=>dedupe([...lunch,...(extraFood?[extraFood]:[])]).some(f=>f.hydrating);
+  const hasGrain=()=>dedupe([...lunch,...(extraFood?[extraFood]:[])]).some(f=>isGrain(f));
+  const grainRecently=recentGrainBlocks(existing,3);
+  const grainAllowed=grainRecently===0 && !extraFood?.grain && !extraFood?.dense;
   // 1) Verdura base: puede repetirse, pero se reparte con penalización suave.
-  const firstV=pickBalanced(baseVeggies.length?baseVeggies:veggies,usedSafe,counts,recent,{avoidNames,preferBase:true,needsHydrating:!!extraFood?.dense}); if(firstV){lunch.push(firstV);usedSafe.add(firstV.name);}
-  // 2) Segunda verdura: si ya hay denso, preferimos agua/hidratante; si no, variamos.
-  let secondPool=veggies;
-  if(hasDense()){const hyd=veggies.filter(f=>f.hydrating); if(hyd.length)secondPool=hyd;}
-  else if(otherVeggies.length){
-    const nonDense=otherVeggies.filter(f=>!f.dense);
-    const denseRecent=safeArr(existing).slice(-5).reduce((n,b)=>n+dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).filter(f=>isCerealOrDenseBase(f)).length,0);
-    secondPool=(nonDense.length && denseRecent>=2)?nonDense:otherVeggies;
-  }
-  const secondV=pickBalanced(secondPool,usedSafe,counts,recent,{avoidNames,needsHydrating:hasDense(),preferHydrating:hasDense(),avoidDense:hasDense()}); if(secondV){lunch.push(secondV);usedSafe.add(secondV.name);}
+  const firstV=pickBalanced(baseVeggies.length?baseVeggies:veggies.filter(f=>!isGrain(f)),usedSafe,counts,recent,{avoidNames,preferBase:true,needsHydrating:!!extraFood?.dense,avoidGrain:true}); if(firstV){lunch.push(firstV);usedSafe.add(firstV.name);}
+  // 2) Segunda verdura: cereal/base solo de forma ocasional; si hay denso, preferimos agua.
+  let secondPool=otherVeggies.length?otherVeggies:veggies.filter(f=>!isGrain(f));
+  if(hasDense()){const hyd=veggies.filter(f=>f.hydrating&&!isGrain(f)); if(hyd.length)secondPool=hyd;}
+  else if(grainAllowed && grainVeggies.length){secondPool=[...secondPool,...grainVeggies];}
+  const secondV=pickBalanced(secondPool,usedSafe,counts,recent,{avoidNames,needsHydrating:hasDense(),preferHydrating:hasDense(),avoidDense:hasDense(),avoidGrain:!grainAllowed||hasGrain()}); if(secondV){lunch.push(secondV);usedSafe.add(secondV.name);}
   // 3) Proteína: fuerte rotación y preferencia de hierro, sin bloquear si hay pocas.
-  const protein=pickBalanced(proteins,usedSafe,counts,recent,{avoidNames,preferIron:true,avoidDense:hasDense()}); if(protein){lunch.push(protein);usedSafe.add(protein.name);}
-  while(lunch.length<3){let fillPool=S.safeFoods.filter(f=>f.cat!=='fruta'&&passesPlanFilters(f)); if(hasDense()){const hyd=fillPool.filter(f=>f.hydrating); if(hyd.length&&!hasHydrating())fillPool=hyd;} const fill=pickBalanced(fillPool,usedSafe,counts,recent,{avoidNames,preferIron:true,needsHydrating:hasDense(),preferHydrating:hasDense(),avoidDense:hasDense()}); if(!fill)break; lunch.push(fill); usedSafe.add(fill.name);}
+  const protein=pickBalanced(proteins,usedSafe,counts,recent,{avoidNames,preferIron:true,avoidDense:hasDense(),avoidGrain:true}); if(protein){lunch.push(protein);usedSafe.add(protein.name);}
+  while(lunch.length<3){let fillPool=S.safeFoods.filter(f=>f.cat!=='fruta'&&passesPlanFilters(f)); if(hasDense()){const hyd=fillPool.filter(f=>f.hydrating&&!isGrain(f)); if(hyd.length&&!hasHydrating())fillPool=hyd;} const fill=pickBalanced(fillPool,usedSafe,counts,recent,{avoidNames,preferIron:true,needsHydrating:hasDense(),preferHydrating:hasDense(),avoidDense:hasDense(),avoidGrain:!grainAllowed||hasGrain()}); if(!fill)break; lunch.push(fill); usedSafe.add(fill.name);}
   if(lunch.length<3)return null;
   // Ajuste digestivo final: si se juntan densos, cambia el primer denso no nuevo por una verdura hidratante.
-  if(!isDigestOk([...lunch,...(extraFood?[extraFood]:[])])){const hyd=pickBalanced(getSafeByCat('verdura').filter(f=>f.hydrating),new Set(lunch.map(f=>f.name)),counts,recent,{avoidNames,needsHydrating:true,preferHydrating:true}); if(hyd){const idx=lunch.findIndex(f=>f.dense&&(!extraFood||f.name!==extraFood.name)); if(idx>=0)lunch[idx]=hyd;}}
+  if(!isDigestOk([...lunch,...(extraFood?[extraFood]:[])])){const hyd=pickBalanced(getSafeByCat('verdura').filter(f=>f.hydrating&&!isGrain(f)),new Set(lunch.map(f=>f.name)),counts,recent,{avoidNames,needsHydrating:true,preferHydrating:true,avoidGrain:true}); if(hyd){const idx=lunch.findIndex(f=>f.dense&&(!extraFood||f.name!==extraFood.name)); if(idx>=0)lunch[idx]=hyd;}}
   return lunch;}
 function buildRecipe(type, existing, usedNew){const recent=recentUseMap(existing,4); const catCounts={verdura:0,proteina:0,fruta:0}; safeArr(existing).forEach(b=>{if(b.newFood&&b.newFood.cat)catCounts[b.newFood.cat]=(catCounts[b.newFood.cat]||0)+1;}); let newFood=null; if(type==='allergen'){newFood=pickNewFood(orderAllergens(pendingAllergens()),usedNew,catCounts,recent); if(!newFood)return null;}else{newFood=pickNewFood(normalPendingFoods(),usedNew,catCounts,recent); if(!newFood)return null;} newFood=enrichFood(newFood); const lunch=buildLunchFromSafe(existing,newFood); if(!lunch)return null; return {foods:lunch,newFood};}
 function buildSafeOnlyRecipe(existing=[]){const lunch=buildLunchFromSafe(existing,null); if(!lunch)return null; return {foods:lunch,newFood:null};}
