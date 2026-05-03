@@ -1,19 +1,97 @@
-console.log('BabyFood base estable PC cargada v8');
+console.log('BabyFood base estable PC cargada v9');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v1';
+const STORAGE_KEY='bf_base_estable_pc_v9';
 const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const DAYS_SHORT=['L','M','X','J','V','S','D'];
 const DEFAULT_ALLERGENS_LIST=[
-{name:'Leche de vaca',cat:'proteina'},{name:'Huevo',cat:'proteina',iron:true},{name:'Trigo (gluten)',cat:'verdura'},{name:'Soja',cat:'proteina'},{name:'Cacahuete',cat:'proteina',iron:true},{name:'Nuez',cat:'proteina'},{name:'Avellana',cat:'proteina'},{name:'Almendra',cat:'proteina'},{name:'Pescado blanco',cat:'proteina',iron:true},{name:'Marisco',cat:'proteina'},{name:'Sésamo',cat:'verdura'},{name:'Kiwi',cat:'fruta',latex:true},{name:'Melocotón',cat:'fruta',latex:true},{name:'Fresa',cat:'fruta'},{name:'Mostaza',cat:'verdura'}];
+{name:'Huevo',cat:'proteina',iron:true},
+{name:'Trigo / gluten',cat:'verdura'},
+{name:'Soja',cat:'proteina',iron:true},
+{name:'Cacahuete',cat:'proteina',iron:true},
+{name:'Almendra',cat:'proteina'},
+{name:'Avellana',cat:'proteina'},
+{name:'Nuez',cat:'proteina'},
+{name:'Sésamo',cat:'verdura'},
+{name:'Pescado blanco',cat:'proteina',iron:true},
+{name:'Salmón',cat:'proteina',iron:true},
+{name:'Marisco',cat:'proteina'},
+{name:'Mostaza',cat:'verdura'},
+{name:'Kiwi',cat:'fruta',latex:true},
+{name:'Melocotón',cat:'fruta',latex:true},
+{name:'Fresa',cat:'fruta'}];
 const INITIAL_STATE={
  babyBirthDate:null,birthDateSkipped:false,shoppingWeekOffset:0,calNotes:{},testing:[],blocks:[],recipes:[],
- safeFoods:[{name:'Zanahoria',cat:'verdura'},{name:'Calabaza',cat:'verdura'},{name:'Brócoli',cat:'verdura',iron:true},{name:'Boniato',cat:'verdura'},{name:'Arroz',cat:'verdura'},{name:'Patata',cat:'verdura'},{name:'Pera',cat:'fruta'},{name:'Manzana',cat:'fruta'},{name:'Plátano',cat:'fruta'},{name:'Pollo',cat:'proteina',iron:true},{name:'Pavo',cat:'proteina',iron:true}],
- pendingFoods:[{name:'Calabacín',cat:'verdura'},{name:'Judía verde',cat:'verdura'},{name:'Guisantes',cat:'verdura',iron:true},{name:'Lenteja roja',cat:'proteina',iron:true},{name:'Garbanzos',cat:'proteina',iron:true},{name:'Ternera',cat:'proteina',iron:true},{name:'Merluza',cat:'proteina',iron:true},{name:'Mango',cat:'fruta'},{name:'Ciruela',cat:'fruta'},{name:'Mandarina',cat:'fruta'},{name:'Melón',cat:'fruta'}],
- dairyFoods:[{name:'Yogur natural',cat:'proteina',availableMonth:9},{name:'Queso tierno',cat:'proteina',availableMonth:9},{name:'Leche entera de vaca',cat:'proteina',availableMonth:12}],
- allergenPool:[{name:'Leche de vaca',cat:'proteina'},{name:'Trigo (gluten)',cat:'verdura'},{name:'Kiwi',cat:'fruta',latex:true},{name:'Fresa',cat:'fruta'},{name:'Pescado blanco',cat:'proteina',iron:true},{name:'Nuez',cat:'proteina'},{name:'Cacahuete',cat:'proteina',iron:true},{name:'Huevo',cat:'proteina',iron:true}],
+ safeFoods:[
+  {name:'Zanahoria',cat:'verdura'},
+  {name:'Calabaza',cat:'verdura'},
+  {name:'Calabacín',cat:'verdura'},
+  {name:'Boniato',cat:'verdura'},
+  {name:'Patata',cat:'verdura'},
+  {name:'Brócoli',cat:'verdura',iron:true},
+  {name:'Coliflor',cat:'verdura'},
+  {name:'Judía verde',cat:'verdura'},
+  {name:'Puerro',cat:'verdura'},
+  {name:'Arroz',cat:'verdura'},
+  {name:'Maíz',cat:'verdura'},
+  {name:'Manzana',cat:'fruta'},
+  {name:'Pera',cat:'fruta'},
+  {name:'Plátano',cat:'fruta'},
+  {name:'Melón',cat:'fruta'},
+  {name:'Sandía',cat:'fruta'},
+  {name:'Pollo',cat:'proteina',iron:true},
+  {name:'Pavo',cat:'proteina',iron:true}
+ ],
+ pendingFoods:[
+  {name:'Guisantes',cat:'verdura',iron:true},
+  {name:'Tomate',cat:'verdura'},
+  {name:'Berenjena',cat:'verdura'},
+  {name:'Pimiento',cat:'verdura'},
+  {name:'Cebolla',cat:'verdura'},
+  {name:'Avena',cat:'verdura'},
+  {name:'Pasta',cat:'verdura'},
+  {name:'Quinoa',cat:'verdura',iron:true},
+  {name:'Naranja',cat:'fruta'},
+  {name:'Mandarina',cat:'fruta'},
+  {name:'Mango',cat:'fruta'},
+  {name:'Ciruela',cat:'fruta'},
+  {name:'Albaricoque',cat:'fruta'},
+  {name:'Aguacate',cat:'fruta'},
+  {name:'Ternera',cat:'proteina',iron:true},
+  {name:'Cordero',cat:'proteina',iron:true},
+  {name:'Cerdo magro',cat:'proteina',iron:true},
+  {name:'Conejo',cat:'proteina',iron:true},
+  {name:'Lenteja roja',cat:'proteina',iron:true},
+  {name:'Garbanzo',cat:'proteina',iron:true},
+  {name:'Alubia blanca',cat:'proteina',iron:true}
+ ],
+ dairyFoods:[
+  {name:'Yogur natural',cat:'proteina',availableMonth:9},
+  {name:'Queso tierno',cat:'proteina',availableMonth:9},
+  {name:'Leche entera de vaca',cat:'proteina',availableMonth:12,allergen:true}
+ ],
+ allergenPool:[
+  {name:'Huevo',cat:'proteina',iron:true},
+  {name:'Trigo / gluten',cat:'verdura'},
+  {name:'Soja',cat:'proteina',iron:true},
+  {name:'Cacahuete',cat:'proteina',iron:true},
+  {name:'Almendra',cat:'proteina'},
+  {name:'Avellana',cat:'proteina'},
+  {name:'Nuez',cat:'proteina'},
+  {name:'Sésamo',cat:'verdura'},
+  {name:'Pescado blanco',cat:'proteina',iron:true},
+  {name:'Salmón',cat:'proteina',iron:true},
+  {name:'Marisco',cat:'proteina'},
+  {name:'Mostaza',cat:'verdura'},
+  {name:'Kiwi',cat:'fruta',latex:true},
+  {name:'Melocotón',cat:'fruta',latex:true},
+  {name:'Fresa',cat:'fruta'}
+ ],
+ avoidFoods:[
+  'Espinaca','Acelga','Borraja','Miel antes de 12 meses','Leche de vaca como bebida antes de 12 meses','Sal añadida','Azúcar añadido','Zumos','Frutos secos enteros','Uvas enteras','Manzana cruda en trozos duros','Zanahoria cruda','Palomitas','Salchichas en rodajas','Pez espada / emperador','Atún rojo','Tiburón / cazón / tintorera','Lucio'
+ ],
  reactions:[],
  reactionHistory:[],dairyUnlocked9:false,dairyUnlocked12:false,dairyPromptSeen9:false,dairyPromptSeen12:false
 };
