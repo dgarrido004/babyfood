@@ -2,7 +2,7 @@
   "name": "BabyFood — Diario de alimentación",
   "short_name": "BabyFood",
   "description": "Seguimiento de alérgenos y alimentación complementaria del bebé",
-  "start_url": "./",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#FFFBF5",
