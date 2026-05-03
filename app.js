@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v23');
+console.log('BabyFood base estable PC cargada v24');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v19';
 const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
@@ -332,16 +332,95 @@ function buildLunchFromSafe(existing=[], extraFood=null){const usedSafe=new Set(
   if(!isDigestOk([...lunch,...(extraFood?[extraFood]:[])])){const hyd=pickBalanced(getSafeByCat('verdura').filter(f=>f.hydrating),new Set(lunch.map(f=>f.name)),counts,recent,{avoidNames,needsHydrating:true,preferHydrating:true,avoidGrain:true}); if(hyd){const idx=lunch.findIndex(f=>f.dense&&(!extraFood||f.name!==extraFood.name)); if(idx>=0)lunch[idx]=hyd;}}
   return lunch;}
 function buildRecipe(type, existing, usedNew){const recent=recentUseMap(existing,4); const catCounts={verdura:0,cereal:0,proteina:0,fruta:0}; safeArr(existing).forEach(b=>{if(b.newFood&&b.newFood.cat)catCounts[b.newFood.cat]=(catCounts[b.newFood.cat]||0)+1;}); let newFood=null; if(type==='allergen'){newFood=pickNewFood(orderAllergens(pendingAllergens()),usedNew,catCounts,recent); if(!newFood)return null;}else{newFood=pickNewFood(normalPendingFoods(),usedNew,catCounts,recent); if(!newFood)return null;} newFood=enrichFood(newFood); const lunch=buildLunchFromSafe(existing,newFood); if(!lunch)return null; return {foods:lunch,newFood};}
-function buildSafeOnlyRecipe(existing=[]){const lunch=buildLunchFromSafe(existing,null); if(!lunch)return null; return {foods:lunch,newFood:null};}
+function buildSafeOnlyRecipe(existing=[]){
+  let lunch=buildLunchFromSafe(existing,null);
+  if(!lunch){
+    // Fallback de mantenimiento: si ya no quedan alimentos nuevos, no bloqueamos el mes.
+    // Usamos alimentos seguros disponibles, priorizando que haya al menos una proteína.
+    const counts=usageCounts(existing);
+    const recent=recentUseMap(existing,6);
+    const avoidNames=lastBlockFoodNames(existing);
+    const used=new Set();
+    lunch=[];
+    const veggies=getSafeByCat('verdura');
+    const cereals=getSafeByCat('cereal');
+    const proteins=getSafeByCat('proteina');
+    const v1=pickBalanced(veggies,used,counts,recent,{avoidNames,preferHydrating:true,avoidDense:false,avoidGrain:true});
+    if(v1){lunch.push(v1);used.add(v1.name);}
+    const p1=pickBalanced(proteins,used,counts,recent,{avoidNames,preferIron:true,avoidDense:false,avoidGrain:true});
+    if(p1){lunch.push(p1);used.add(p1.name);}
+    let fillPool=[...veggies,...cereals,...proteins].filter(f=>passesPlanFilters(f));
+    while(lunch.length<3&&fillPool.length){
+      const fill=pickBalanced(fillPool,used,counts,recent,{avoidNames,preferIron:lunch.filter(f=>f.cat==='proteina').length===0,avoidDense:lunch.some(f=>f.dense),avoidGrain:lunch.some(f=>f.cat==='cereal')});
+      if(!fill)break;
+      lunch.push(fill); used.add(fill.name);
+    }
+  }
+  if(!lunch||lunch.length<3)return null;
+  return {foods:lunch,newFood:null};
+}
 function hasAvailableNormal(usedNew){return normalPendingFoods().some(f=>!usedNew.has(f.name));}
 function hasAvailableAllergen(usedNew){return orderAllergens(pendingAllergens()).some(f=>!usedNew.has(f.name));}
-function generateBlocks(startDate,count=10,endDate=null){let blocks=[]; let current=startDate; let type=nextBlockTypeForStart(startDate); let usedNew=getUsedNewFoodsAll(); for(let i=0;i<count;i++){if(endDate&&current>endDate)break; const context=[...S.blocks,...blocks]; if(type==='allergen'&&!hasAvailableAllergen(usedNew))type='normal'; if(type==='normal'&&!hasAvailableNormal(usedNew)&&hasAvailableAllergen(usedNew))type='allergen'; let rec=buildRecipe(type,context,usedNew); if(!rec){const alt=type==='allergen'?'normal':'allergen'; if((alt==='normal'&&hasAvailableNormal(usedNew))||(alt==='allergen'&&hasAvailableAllergen(usedNew))){type=alt; rec=buildRecipe(type,context,usedNew);} }
-    if(!rec){rec=buildSafeOnlyRecipe(context); type='normal';}
+function generateBlocks(startDate,count=10,endDate=null){
+  let blocks=[];
+  let current=startDate;
+  let type=nextBlockTypeForStart(startDate);
+  let usedNew=getUsedNewFoodsAll();
+  for(let i=0;i<count;i++){
+    if(endDate&&current>endDate)break;
+    const context=[...S.blocks,...blocks];
+    const normalAvailable=hasAvailableNormal(usedNew);
+    const allergenAvailable=hasAvailableAllergen(usedNew);
+    if(type==='allergen'&&!allergenAvailable)type='normal';
+    if(type==='normal'&&!normalAvailable&&allergenAvailable)type='allergen';
+    let rec=null;
+    if((type==='allergen'&&allergenAvailable)||(type==='normal'&&normalAvailable)){
+      rec=buildRecipe(type,context,usedNew);
+    }
+    if(!rec){
+      const alt=type==='allergen'?'normal':'allergen';
+      if((alt==='normal'&&normalAvailable)||(alt==='allergen'&&allergenAvailable)){
+        type=alt;
+        rec=buildRecipe(type,context,usedNew);
+      }
+    }
+    if(!rec){
+      rec=buildSafeOnlyRecipe(context);
+      type='normal';
+    }
     if(!rec)break;
     const bEnd=endDate&&addDays(current,2)>endDate?endDate:addDays(current,2);
-    const b={id:Date.now()+i,type,startDate:current,endDate:bEnd,foods:rec.foods,newFood:rec.newFood,completed:false,reactionFood:null}; b.dailyFruits=getDailyFruits(b,context); blocks.push(b); if(rec.newFood)usedNew.add(rec.newFood.name); current=addDays(b.endDate,1); type=(type==='normal'&&hasAvailableAllergen(usedNew))?'allergen':'normal'; } return blocks;}
+    const b={id:Date.now()+i,type,startDate:current,endDate:bEnd,foods:rec.foods,newFood:rec.newFood||null,completed:false,reactionFood:null};
+    b.dailyFruits=getDailyFruits(b,context);
+    blocks.push(b);
+    if(rec.newFood)usedNew.add(rec.newFood.name);
+    current=addDays(b.endDate,1);
+    type=(type==='normal'&&hasAvailableAllergen(usedNew))?'allergen':'normal';
+  }
+  return blocks;
+}
 function preparePlanModal(){const input=document.getElementById('plan-start-date'); input.value=today(); const m=monthDiffFromBirth(); document.getElementById('under-six-warning').innerHTML=(m!==null&&m<6)?'<div class="info-box info-amber">Antes de los 6 meses solo debería iniciarse alimentación complementaria por indicación del pediatra.</div>':''; const dairyFilter=document.getElementById('filter-dairy-wrap'); if(dairyFilter)dairyFilter.style.display=(m!==null&&m>=9)?'block':'none';}
-function generatePlan(){if(!requireBirthDateForPlan())return; PLAN_FILTERS={avoidLatex:!!document.getElementById('filter-avoid-latex')?.checked,avoidDairy:!!document.getElementById('filter-avoid-dairy')?.checked}; const selected=document.getElementById('plan-start-date').value; if(!selected){alert('Elige un mes');return;} const mb=monthBounds(selected); const start=mb.start; const existing=S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end)); const oldBlocks=deepClone(S.blocks); if(existing.length){if(!confirm('Este mes ya tiene plan. ¿Quieres rehacer solo este mes?'))return; S.blocks=S.blocks.filter(b=>b.endDate<mb.start||b.startDate>mb.end);} const count=Math.ceil((daysBetween(mb.start,mb.end)+1)/3); const newBlocks=generateBlocks(start,count,mb.end); if(!newBlocks.length){S.blocks=oldBlocks; save(); alert('No se ha podido generar el plan. Revisa que haya al menos 2 verduras seguras y 1 proteína segura.'); return;} S.blocks=[...S.blocks,...newBlocks].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-setup-plan'); renderPlan(); renderCalendario();}
+function generatePlan(){
+  if(!requireBirthDateForPlan())return;
+  PLAN_FILTERS={avoidLatex:!!document.getElementById('filter-avoid-latex')?.checked,avoidDairy:!!document.getElementById('filter-avoid-dairy')?.checked};
+  const selected=document.getElementById('plan-start-date').value;
+  if(!selected){alert('Elige un mes');return;}
+  const mb=monthBounds(selected);
+  const start=mb.start;
+  const existing=S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end));
+  const oldBlocks=deepClone(S.blocks);
+  if(existing.length){if(!confirm('Este mes ya tiene plan. ¿Quieres rehacer solo este mes?'))return; S.blocks=S.blocks.filter(b=>b.endDate<mb.start||b.startDate>mb.end);}
+  const count=Math.ceil((daysBetween(mb.start,mb.end)+1)/3);
+  const newBlocks=generateBlocks(start,count,mb.end);
+  if(!newBlocks.length){
+    S.blocks=oldBlocks; save();
+    alert('No se ha podido generar el plan. Revisa que haya suficientes alimentos seguros: al menos 1 verdura, 1 proteína y 1 fruta segura.');
+    return;
+  }
+  S.blocks=[...S.blocks,...newBlocks].sort((a,b)=>a.startDate.localeCompare(b.startDate));
+  save(); closeModal('modal-setup-plan'); renderPlan(); renderCalendario();
+  if(!newBlocks.some(b=>b.newFood)){alert('Mes generado como mantenimiento: no quedaban alimentos nuevos/alérgenos pendientes para introducir.');}
+}
 function rebuildFromTodayIfNeeded(){/* no rehace automáticamente para no borrar histórico inesperadamente */}
 function getDailyFruits(b,existing=[]){let pool=safeFruits(); const nf=enrichFood(b.newFood); if(nf&&nf.cat==='fruta'&&b.type==='allergen'&&!isSafe(nf.name))return [nf,nf,nf]; const counts=usageCounts(existing); const recent=recentUseMap(existing,6); const avoidNames=lastBlockFoodNames(existing); const needsHydrating=dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).some(f=>f.dense); let res=[]; const used=new Set(); for(let i=0;i<3;i++){ if(i===0&&nf&&nf.cat==='fruta'){res.push(nf); used.add(nf.name); continue;} if(!pool.length)continue; let candidates=pool; if(needsHydrating){const hyd=pool.filter(f=>f.hydrating); if(hyd.length)candidates=hyd;} const chosen=pickBalanced(candidates,used,counts,recent,{avoidNames,needsHydrating,preferHydrating:needsHydrating,avoidDense:false}); if(chosen){res.push(chosen); if(pool.length>=3)used.add(chosen.name);} }
  while(res.length<3&&pool.length){const chosen=pickBalanced(pool,new Set(res.map(f=>f.name)),counts,recent,{avoidNames,needsHydrating,preferHydrating:needsHydrating}); if(chosen)res.push(chosen); else res.push(pool[res.length%pool.length]);}
