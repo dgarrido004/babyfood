@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="BabyFood"/>
 <title>BabyFood</title>
-<link rel="manifest" href="manifest.json"/>
 <link rel="apple-touch-icon" href="icons/icon-192.png"/>
 <style>
 :root{--bg:#FFFBF5;--surface:#fff;--text:#2C1A0E;--text2:#735536;--text3:#A98662;--accent:#E8722A;--accent-light:#FEF0E3;--green:#2F9E61;--green-light:#E8F5E9;--blue:#2F80C9;--blue-light:#E3F2FD;--amber:#C98200;--amber-light:#FFF4D6;--red:#C93434;--red-light:#FDEAEA;--purple:#7B4FB4;--purple-light:#F3E5F5;--border:rgba(44,26,14,.10);--border2:rgba(44,26,14,.18);--radius:18px;--radius-sm:12px;--shadow:0 2px 14px rgba(232,114,42,.10)}
@@ -52,8 +51,9 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 
 <script>
 'use strict';
-const STORAGE_KEY='bf_base_sin_sw_v1';
-const OLD_KEYS=[];
+window.addEventListener('error', function(e){ try{ document.body.insertAdjacentHTML('afterbegin','<div style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#ffdada;color:#7a1a1a;padding:8px;font:12px system-ui">Error JS: '+String(e.message).replace(/[<>]/g,'')+'</div>'); }catch(_){} });
+const STORAGE_KEY='bf_v24_clean';
+const OLD_KEYS=['bf_v15_clean','bf_v3','bf_v4','bf_v5','bf_v6','bf_v7','bf_v8','bf_v9','bf_v10'];
 const CAT_ICON={verdura:'🥦',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas, cereales y tubérculos',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -215,20 +215,8 @@ Object.assign(window, {
 });
 
 load(); checkBlockCompletions(); renderAlimentos(); renderGuia(); updateHeader();
-// Base limpia SIN service worker: desregistra cualquier SW antiguo y limpia cachés viejas.
-function cleanupOldServiceWorkers(){
-  try{
-    if('serviceWorker' in navigator){
-      navigator.serviceWorker.getRegistrations()
-        .then(regs=>Promise.all(regs.map(r=>r.unregister())))
-        .catch(()=>{});
-    }
-    if('caches' in window){
-      caches.keys().then(keys=>Promise.all(keys.map(k=>caches.delete(k)))).catch(()=>{});
-    }
-  }catch(e){console.warn('No se pudo limpiar caché/SW antiguo', e);}
-}
-window.addEventListener('load', cleanupOldServiceWorkers);
+try{ if('serviceWorker' in navigator){ navigator.serviceWorker.getRegistrations().then(rs=>rs.forEach(r=>r.unregister())); } if('caches' in window){ caches.keys().then(keys=>keys.forEach(k=>caches.delete(k))); } }catch(e){}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 </script>
 </body>
 </html>
