@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v21');
+console.log('BabyFood base estable PC cargada v22');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v19';
 const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
@@ -273,8 +273,9 @@ function populateReactionFoodSelect(){const sel=document.getElementById('reactio
 function populateAllergenPresetSelect(){const used=new Set(allFoods().map(f=>f.name)); const sel=document.getElementById('allergen-preset-select'); sel.innerHTML='<option value="">Selecciona...</option>'+DEFAULT_ALLERGENS_LIST.filter(a=>!used.has(a.name)).map(a=>`<option value="${escapeHtml(a.name)}">${escapeHtml(a.name)}</option>`).join('');}
 document.getElementById('allergen-preset-select').addEventListener('change',function(){const f=DEFAULT_ALLERGENS_LIST.find(a=>a.name===this.value); if(f){document.getElementById('allergen-cat').value=f.cat; document.getElementById('allergen-iron').checked=!!f.iron; document.getElementById('allergen-latex').checked=!!f.latex; if(document.getElementById('allergen-dense'))document.getElementById('allergen-dense').checked=!!enrichFood(f).dense; if(document.getElementById('allergen-hydrating'))document.getElementById('allergen-hydrating').checked=!!enrichFood(f).hydrating;}});
 function orderAllergens(arr){return dedupe(arr).sort((a,b)=>{if(a.name==='Huevo')return 1;if(b.name==='Huevo')return -1;return a.name.localeCompare(b.name,'es');});}
-function usageCounts(blocks=[]){const c={}; safeArr(blocks).forEach(b=>{safeArr(b.foods).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+1;}); safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+1;}); if(b.newFood&&b.newFood.name)c[b.newFood.name]=(c[b.newFood.name]||0)+1;}); return c;}
-function recentUseMap(blocks=[],limit=4){const c={}; safeArr(blocks).slice(-limit).forEach((b,idx)=>{const weight=limit-idx; safeArr(b.foods).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight;}); safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight;}); if(b.newFood&&b.newFood.name)c[b.newFood.name]=(c[b.newFood.name]||0)+weight;}); return c;}
+function blockDays(b){if(!b||!b.startDate||!b.endDate)return 3; return Math.max(1,daysBetween(b.startDate,b.endDate)+1);}
+function usageCounts(blocks=[]){const c={}; safeArr(blocks).forEach(b=>{const d=blockDays(b); safeArr(b.foods).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+d;}); if(b.newFood&&b.newFood.name&&b.newFood.cat!=='fruta')c[b.newFood.name]=(c[b.newFood.name]||0)+d; safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+1;});}); return c;}
+function recentUseMap(blocks=[],limit=4){const c={}; safeArr(blocks).slice(-limit).forEach((b,idx)=>{const weight=limit-idx; const d=blockDays(b); safeArr(b.foods).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight*d;}); if(b.newFood&&b.newFood.name&&b.newFood.cat!=='fruta')c[b.newFood.name]=(c[b.newFood.name]||0)+weight*d; safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)c[f.name]=(c[f.name]||0)+weight;});}); return c;}
 function lastBlockFoodNames(blocks=[]){const b=safeArr(blocks).slice(-1)[0]; const set=new Set(); if(!b)return set; safeArr(b.foods).forEach(f=>{if(f&&f.name)set.add(f.name);}); safeArr(b.dailyFruits).forEach(f=>{if(f&&f.name)set.add(f.name);}); if(b.newFood&&b.newFood.name)set.add(b.newFood.name); return set;}
 function isBaseFood(f){f=enrichFood(f); const base=new Set(['Calabacín','Calabaza','Judía verde','Puerro','Zanahoria','Coliflor','Tomate','Berenjena','Cebolla']); return f.cat==='verdura'&&base.has(f.name);}
 function isGrain(f){f=enrichFood(f); return f.cat==='cereal';}
@@ -282,18 +283,18 @@ function isCerealOrDenseBase(f){f=enrichFood(f); return !!f.grain || ['Patata','
 function recentGrainBlocks(blocks=[],limit=3){return safeArr(blocks).slice(-limit).reduce((n,b)=>n+(dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[])]).some(f=>isGrain(f))?1:0),0);}
 function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); let score=0; const use=counts[f.name]||0; const rec=recent[f.name]||0; const base=isBaseFood(f); const protein=f.cat==='proteina'; const fruit=f.cat==='fruta'; const grain=isGrain(f); const denseBase=isCerealOrDenseBase(f);
   // Penalización progresiva, no bloqueo: las bases vegetales pueden repetirse más.
-  let useWeight=base?5:(protein?14:(fruit?16:(grain?42:(denseBase?46:9))));
-  let recentWeight=base?8:(protein?28:(fruit?38:(grain?95:(denseBase?110:16))));
+  let useWeight=base?5:(protein?14:(fruit?18:(grain?42:(denseBase?46:(f.cat==='verdura'?24:12)))));
+  let recentWeight=base?8:(protein?28:(fruit?42:(grain?95:(denseBase?110:(f.cat==='verdura'?46:20)))));
   score+=use*useWeight; score+=rec*recentWeight;
   if(opts.avoidNames&&opts.avoidNames.has(f.name))score+=base?25:(denseBase?140:90);
   if(opts.avoidGrain&&grain)score+=220;
   if(opts.preferIron&&f.iron)score-=protein?14:8;
   // Látex y alérgeno son etiquetas de control/aviso, no deben actuar como prioridad del generador.
   // Si el alimento ya es seguro puede usarse, pero con ligera penalización para que no domine el plan.
-  if(f.latex)score+=55+(use*8)+(rec*28);
-  if(f.allergen)score+=45+(use*7)+(rec*24);
+  if(f.latex)score+=65+(use*12)+(rec*30);
+  if(f.allergen)score+=55+(use*10)+(rec*26);
   if(opts.needsHydrating&&f.hydrating)score-=18;
-  if(opts.avoidDense&&f.dense)score+=denseBase?90:45; if(f.name==='Patata')score+=(use*18)+(rec*45);
+  if(opts.avoidDense&&f.dense)score+=denseBase?90:45; if(f.name==='Patata')score+=(use*22)+(rec*50);
   if(opts.preferBase&&base)score-=8;
   if(opts.preferHydrating&&f.hydrating)score-=10;
   if(opts.sameCatPenalty)score+=opts.sameCatPenalty;
