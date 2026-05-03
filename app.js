@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v19');
+console.log('BabyFood base estable PC cargada v20');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v19';
 const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
@@ -124,6 +124,20 @@ function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S));}catch(e
 function load(){try{const d=localStorage.getItem(STORAGE_KEY); if(d){S={...deepClone(INITIAL_STATE),...JSON.parse(d)}; ensureState(); return;} for(const k of OLD_KEYS){const o=localStorage.getItem(k); if(o){S={...deepClone(INITIAL_STATE),...JSON.parse(o)}; ensureState(); save(); return;}} ensureState();}catch(e){console.warn(e); ensureState();}}
 function allFoods(){return dedupe([...S.safeFoods,...S.pendingFoods,...S.dairyFoods]);}
 function isSafe(n){return S.safeFoods.some(f=>f.name===n);} function isPending(n){return S.pendingFoods.some(f=>f.name===n);} function isAllergen(n){return allFoods().some(f=>f.name===n&&f.allergen);} function isReaction(n){return S.reactions.some(f=>f.name===n);} function removeEverywhere(n){S.safeFoods=S.safeFoods.filter(f=>f.name!==n);S.pendingFoods=S.pendingFoods.filter(f=>f.name!==n);S.dairyFoods=S.dairyFoods.filter(f=>f.name!==n);S.allergenPool=[];S.testing=S.testing.filter(f=>f.name!==n);}
+function addFoodTo(pool, food){
+  food=enrichFood(food);
+  if(!food.name)return false;
+  if(isReaction(food.name)){alert('Este alimento está en Reacciones. Primero pulsa Reintentar o elimínalo de reacciones.');return false;}
+  if(!S[pool])S[pool]=[];
+  removeEverywhere(food.name);
+  S[pool].push(food);
+  ensureState();
+  save();
+  renderAlimentos();
+  renderPlan();
+  renderCalendario();
+  return true;
+}
 function isAgeRestrictedFood(f){const name=String(f?.name||'').toLowerCase(); const m=monthDiffFromBirth(); if(m===null&&(name.includes('leche')||name.includes('yogur')||name.includes('queso')))return true; if(name.includes('leche')&&m<12)return true; if((name.includes('yogur')||name.includes('queso'))&&m<9)return true; return false;}
 function isDairyFood(f){const name=String(f?.name||'').toLowerCase(); return name.includes('leche')||name.includes('yogur')||name.includes('queso');}
 function passesPlanFilters(f){f=enrichFood(f); if(isReaction(f.name))return false; if(isAgeRestrictedFood(f))return false; if(PLAN_FILTERS.avoidLatex&&f.latex)return false; if(PLAN_FILTERS.avoidDairy&&isDairyFood(f))return false; return true;}
@@ -142,7 +156,18 @@ function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect()
 function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
-function renderFoodGroups(items){items=sortFoodsAZ(items); if(!items.length)return '<div class="empty">Sin alimentos</div>'; const groups={verdura:[],cereal:[],proteina:[],fruta:[]}; items.forEach(f=>(groups[f.cat]||groups.verdura).push(f)); let html=''; ['verdura','cereal','proteina','fruta'].forEach(cat=>{if(!groups[cat].length)return; html+=`<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div>`+groups[cat].map(f=>`<div class="food-row food-row-click" data-action="openEditFood" data-name="${escapeAttr(f.name)}"><div><div class="food-name">${escapeHtml(f.name)}${foodBadge(f)}</div></div><div class="food-chevron">›</div></div>`).join('');}); return html;}
+function renderFoodGroups(items){
+  items=sortFoodsAZ(items);
+  if(!items.length)return '<div class="empty">Sin alimentos</div>';
+  const groups={verdura:[],cereal:[],proteina:[],fruta:[]};
+  items.forEach(f=>(groups[f.cat]||groups.verdura).push(f));
+  let html='';
+  ['verdura','cereal','proteina','fruta'].forEach(cat=>{
+    if(!groups[cat].length)return;
+    html+=`<div class="cat-box cat-${cat}"><div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div><div class="cat-items">`+groups[cat].map(f=>`<div class="food-row food-row-click" data-action="openEditFood" data-name="${escapeAttr(f.name)}"><div><div class="food-name">${escapeHtml(f.name)}${foodBadge(f)}</div></div><div class="food-chevron">›</div></div>`).join('')+`</div></div>`;
+  });
+  return html;
+}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
 function escapeAttr(s){return escapeHtml(s);}
 
