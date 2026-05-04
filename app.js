@@ -1,4 +1,4 @@
-console.log('BabyFood base estable PC cargada v27');
+console.log('BabyFood base estable PC cargada v28');
 'use strict';
 const STORAGE_KEY='bf_base_estable_pc_v19';
 const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
@@ -364,26 +364,38 @@ function hasAvailableAllergen(usedNew){return orderAllergens(pendingAllergens())
 function generateBlocks(startDate,count=10,endDate=null){
   let blocks=[];
   let current=startDate;
-  let type=nextBlockTypeForStart(startDate);
   let usedNew=getUsedNewFoodsAll();
+  // Alternancia determinista por posición global: normal → alérgeno → normal.
+  // No depende del estado previo ambiguo ni de si hay alérgenos disponibles.
+  const previousCount=S.blocks.filter(b=>b&&b.endDate<startDate).length;
   for(let i=0;i<count;i++){
     if(endDate&&current>endDate)break;
     const context=[...S.blocks,...blocks];
     const normalAvailable=hasAvailableNormal(usedNew);
     const allergenAvailable=hasAvailableAllergen(usedNew);
-    if(type==='allergen'&&!allergenAvailable)type='normal';
-    if(type==='normal'&&!normalAvailable&&allergenAvailable)type='allergen';
+    const desiredType=((previousCount+i)%2===0)?'normal':'allergen';
+    let type=desiredType;
     let rec=null;
-    if((type==='allergen'&&allergenAvailable)||(type==='normal'&&normalAvailable)){
-      rec=buildRecipe(type,context,usedNew);
-    }
-    if(!rec){
-      const alt=type==='allergen'?'normal':'allergen';
-      if((alt==='normal'&&normalAvailable)||(alt==='allergen'&&allergenAvailable)){
-        type=alt;
-        rec=buildRecipe(type,context,usedNew);
+
+    if(desiredType==='allergen'){
+      if(allergenAvailable){
+        rec=buildRecipe('allergen',context,usedNew);
+        type='allergen';
       }
+      // Si ya no quedan alérgenos pendientes, el bloque pasa a normal.
+      if(!rec&&normalAvailable){
+        rec=buildRecipe('normal',context,usedNew);
+        type='normal';
+      }
+    }else{
+      if(normalAvailable){
+        rec=buildRecipe('normal',context,usedNew);
+        type='normal';
+      }
+      // En huecos normales sin alimentos nuevos NO metemos alérgenos extra:
+      // se mantiene bloque normal de mantenimiento para no romper la alternancia.
     }
+
     if(!rec){
       rec=buildSafeOnlyRecipe(context);
       type='normal';
@@ -395,7 +407,6 @@ function generateBlocks(startDate,count=10,endDate=null){
     blocks.push(b);
     if(rec.newFood)usedNew.add(rec.newFood.name);
     current=addDays(b.endDate,1);
-    type=(type==='normal'&&hasAvailableAllergen(usedNew))?'allergen':'normal';
   }
   return blocks;
 }
