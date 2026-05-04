@@ -1,7 +1,7 @@
-console.log('BabyFood base estable PC cargada v28');
+console.log('BabyFood base estable PC cargada v29');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v19';
-const OLD_KEYS=['bf_base_estable_pc_v18','bf_base_estable_pc_v17','bf_base_estable_pc_v16','bf_base_estable_pc_v15','bf_base_estable_pc_v14','bf_base_estable_pc_v12','bf_base_estable_pc_v11','bf_base_estable_pc_v10'];
+const STORAGE_KEY='bf_base_estable_pc_v29';
+const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -26,6 +26,7 @@ const DEFAULT_ALLERGENS_LIST=[
 {name:'Kiwi',cat:'fruta',latex:true},
 {name:'Melocotón',cat:'fruta',latex:true},
 {name:'Fresa',cat:'fruta'}];
+const DEFAULT_ALLERGEN_NAMES=new Set(DEFAULT_ALLERGENS_LIST.map(f=>f.name));
 const INITIAL_STATE={
  babyBirthDate:null,birthDateSkipped:false,shoppingWeekOffset:0,calNotes:{},testing:[],blocks:[],recipes:[],
  safeFoods:[],
@@ -68,30 +69,29 @@ const INITIAL_STATE={
   {name:'Conejo',cat:'proteina',iron:true},
   {name:'Lenteja roja',cat:'proteina',iron:true},
   {name:'Garbanzo',cat:'proteina',iron:true},
-  {name:'Alubia blanca',cat:'proteina',iron:true}
+  {name:'Alubia blanca',cat:'proteina',iron:true},
+  {name:'Huevo',cat:'proteina',iron:true,allergen:true},
+  {name:'Trigo / gluten',cat:'cereal',allergen:true,dense:true},
+  {name:'Soja',cat:'proteina',iron:true,allergen:true},
+  {name:'Cacahuete',cat:'proteina',iron:true,allergen:true},
+  {name:'Almendra',cat:'proteina',allergen:true},
+  {name:'Avellana',cat:'proteina',allergen:true},
+  {name:'Nuez',cat:'proteina',allergen:true},
+  {name:'Sésamo',cat:'verdura',allergen:true},
+  {name:'Pescado blanco',cat:'proteina',iron:true,allergen:true},
+  {name:'Salmón',cat:'proteina',iron:true,allergen:true},
+  {name:'Marisco',cat:'proteina',allergen:true},
+  {name:'Mostaza',cat:'verdura',allergen:true},
+  {name:'Kiwi',cat:'fruta',latex:true,allergen:true},
+  {name:'Melocotón',cat:'fruta',latex:true,allergen:true},
+  {name:'Fresa',cat:'fruta',allergen:true}
  ],
  dairyFoods:[
   {name:'Yogur natural',cat:'proteina',availableMonth:9},
   {name:'Queso tierno',cat:'proteina',availableMonth:9},
   {name:'Leche entera de vaca',cat:'proteina',availableMonth:12,allergen:true}
  ],
- allergenPool:[
-  {name:'Huevo',cat:'proteina',iron:true},
-  {name:'Trigo / gluten',cat:'cereal',allergen:true,dense:true},
-  {name:'Soja',cat:'proteina',iron:true},
-  {name:'Cacahuete',cat:'proteina',iron:true},
-  {name:'Almendra',cat:'proteina'},
-  {name:'Avellana',cat:'proteina'},
-  {name:'Nuez',cat:'proteina'},
-  {name:'Sésamo',cat:'verdura'},
-  {name:'Pescado blanco',cat:'proteina',iron:true},
-  {name:'Salmón',cat:'proteina',iron:true},
-  {name:'Marisco',cat:'proteina'},
-  {name:'Mostaza',cat:'verdura'},
-  {name:'Kiwi',cat:'fruta',latex:true},
-  {name:'Melocotón',cat:'fruta',latex:true},
-  {name:'Fresa',cat:'fruta'}
- ],
+ allergenPool:[],
  avoidFoods:[
   'Espinaca','Acelga','Borraja','Miel antes de 12 meses','Leche de vaca como bebida antes de 12 meses','Sal añadida','Azúcar añadido','Zumos','Frutos secos enteros','Uvas enteras','Manzana cruda en trozos duros','Zanahoria cruda','Palomitas','Salchichas en rodajas','Pez espada / emperador','Atún rojo','Tiburón / cazón / tintorera','Lucio'
  ],
@@ -115,11 +115,22 @@ function ageText(){if(!S.babyBirthDate)return 'Edad no configurada'; const w=Mat
 function requireBirthDateForPlan(){if(S.babyBirthDate)return true; alert('Antes de generar el plan debes indicar la fecha de nacimiento del bebé.'); closeModal('modal-setup-plan'); openModal('modal-birthdate'); return false;}
 function autoPromptDairyUnlock(){const m=monthDiffFromBirth(); if(m===null)return; if(m>=9&&!S.dairyPromptSeen9&&S.dairyFoods.some(f=>Number(f.availableMonth||9)===9)){S.dairyPromptSeen9=true; save(); setTimeout(()=>{if(confirm('🧀 Lácteos desbloqueados\n\nYa puedes introducir yogur natural y queso tierno. ¿Quieres añadirlos a pendientes?'))activateDairy(9);},250);} if(m>=12&&!S.dairyPromptSeen12&&S.dairyFoods.some(f=>Number(f.availableMonth||9)===12)){S.dairyPromptSeen12=true; save(); setTimeout(()=>{if(confirm('🥛 Leche de vaca disponible\n\nYa puedes añadirla a pendientes. ¿Quieres hacerlo ahora?'))activateDairy(12);},250);}}
 function enrichFood(f){if(!f)return null; const out={iron:false,latex:false,allergen:false,dense:false,hydrating:false,grain:false,...f}; if(GRAIN_FOODS.has(out.name)||out.grain)out.cat='cereal'; if(DENSE_FOODS.has(out.name))out.dense=true; if(HYDRATING_FOODS.has(out.name))out.hydrating=true; out.grain=out.cat==='cereal'; return out;}
+
+function normalizeAllergenFlags(){
+  // Defensa contra estados corruptos: en un estado limpio no todos los pendientes deben ser alérgenos.
+  // Solo conservamos allergen:true cuando es un alérgeno conocido o el usuario lo marcó y ya existe guardado así.
+  const defaultNames=DEFAULT_ALLERGEN_NAMES;
+  const pending=safeArr(S.pendingFoods).map(enrichFood).filter(Boolean);
+  const allergenCount=pending.filter(f=>f.allergen).length;
+  if(pending.length && allergenCount/pending.length>0.75){
+    S.pendingFoods=pending.map(f=> defaultNames.has(f.name) ? {...f,allergen:true} : {...f,allergen:false});
+  }
+}
 function foodBadge(f){const e=enrichFood(f); let h=''; const ar=activeReactionInfo(e.name); if(ar)h+=`<span class="badge b-reaction" data-action="showReactionInfo" data-name="${escapeAttr(e.name)}" title="Ver reacción">Reacción</span>`; if(e.iron)h+='<span class="badge b-tag">hierro</span>'; if(e.allergen)h+='<span class="badge b-allergen">alérgeno</span>'; if(e.latex)h+='<span class="badge b-tag">látex</span>'; if(e.dense)h+='<span class="badge b-tag">denso</span>'; if(e.hydrating)h+='<span class="badge b-tag">agua</span>'; return h;}
 function safeArr(a){return Array.isArray(a)?a:[];}
 function dedupe(arr){const seen=new Set(); return safeArr(arr).filter(x=>x&&x.name&&!seen.has(x.name)&&(seen.add(x.name),true)).map(enrichFood);}
 function sortFoodsAZ(arr){return dedupe(arr).sort((a,b)=>String(a.name).localeCompare(String(b.name),'es',{sensitivity:'base'}));}
-function ensureState(){S={...deepClone(INITIAL_STATE),...S}; ['safeFoods','pendingFoods','dairyFoods','allergenPool','reactions','testing'].forEach(k=>S[k]=dedupe(S[k])); if(S.allergenPool&&S.allergenPool.length){S.allergenPool.forEach(f=>{const ef={...enrichFood(f),allergen:true}; if(!S.pendingFoods.some(x=>x.name===ef.name)&&!S.safeFoods.some(x=>x.name===ef.name)&&!S.dairyFoods.some(x=>x.name===ef.name))S.pendingFoods.push(ef);}); S.allergenPool=[];} ['safeFoods','pendingFoods','dairyFoods','reactions','testing'].forEach(k=>S[k]=dedupe(S[k])); S.dairyUnlocked9=!!S.dairyUnlocked9; S.dairyUnlocked12=!!S.dairyUnlocked12; S.dairyPromptSeen9=!!S.dairyPromptSeen9; S.dairyPromptSeen12=!!S.dairyPromptSeen12; S.reactionHistory=Array.isArray(S.reactionHistory)?S.reactionHistory:[]; S.reactionHistory=S.reactionHistory.filter(r=>r&&r.name).map(r=>({id:r.id||Date.now()+Math.random(),name:r.name,cat:r.cat||'verdura',date:r.date||today(),source:r.source||'manual',status:r.status||'active',resolvedDate:r.resolvedDate||null,notes:r.notes||''})); S.reactions.forEach(r=>{if(!S.reactionHistory.some(h=>h.name===r.name&&h.status==='active'))S.reactionHistory.push({id:Date.now()+Math.random(),name:r.name,cat:r.cat||'verdura',date:r.date||today(),source:'manual',status:'active',resolvedDate:null,notes:''});}); S.reactions=dedupe(S.reactions.map(r=>({...r,date:activeReactionInfo(r.name)?.date||r.date||today()}))); S.blocks=Array.isArray(S.blocks)?S.blocks:[]; S.blocks=S.blocks.filter(b=>b&&b.startDate&&b.endDate).map(b=>({...b,foods:dedupe(b.foods||[]),newFood:b.newFood?enrichFood(b.newFood):null,dailyFruits:Array.isArray(b.dailyFruits)?dedupe(b.dailyFruits):[]})); S.calNotes=S.calNotes||{}; S.recipes=S.recipes||[]; S.shoppingWeekOffset=S.shoppingWeekOffset||0;}
+function ensureState(){S={...deepClone(INITIAL_STATE),...S}; ['safeFoods','pendingFoods','dairyFoods','allergenPool','reactions','testing'].forEach(k=>S[k]=dedupe(S[k])); if(S.allergenPool&&S.allergenPool.length){S.allergenPool.forEach(f=>{const ef={...enrichFood(f),allergen:true}; if(!S.pendingFoods.some(x=>x.name===ef.name)&&!S.safeFoods.some(x=>x.name===ef.name)&&!S.dairyFoods.some(x=>x.name===ef.name))S.pendingFoods.push(ef);}); S.allergenPool=[];} ['safeFoods','pendingFoods','dairyFoods','reactions','testing'].forEach(k=>S[k]=dedupe(S[k])); S.dairyUnlocked9=!!S.dairyUnlocked9; S.dairyUnlocked12=!!S.dairyUnlocked12; S.dairyPromptSeen9=!!S.dairyPromptSeen9; S.dairyPromptSeen12=!!S.dairyPromptSeen12; S.reactionHistory=Array.isArray(S.reactionHistory)?S.reactionHistory:[]; S.reactionHistory=S.reactionHistory.filter(r=>r&&r.name).map(r=>({id:r.id||Date.now()+Math.random(),name:r.name,cat:r.cat||'verdura',date:r.date||today(),source:r.source||'manual',status:r.status||'active',resolvedDate:r.resolvedDate||null,notes:r.notes||''})); S.reactions.forEach(r=>{if(!S.reactionHistory.some(h=>h.name===r.name&&h.status==='active'))S.reactionHistory.push({id:Date.now()+Math.random(),name:r.name,cat:r.cat||'verdura',date:r.date||today(),source:'manual',status:'active',resolvedDate:null,notes:''});}); S.reactions=dedupe(S.reactions.map(r=>({...r,date:activeReactionInfo(r.name)?.date||r.date||today()}))); normalizeAllergenFlags(); S.blocks=Array.isArray(S.blocks)?S.blocks:[]; S.blocks=S.blocks.filter(b=>b&&b.startDate&&b.endDate).map(b=>({...b,foods:dedupe(b.foods||[]),newFood:b.newFood?enrichFood(b.newFood):null,dailyFruits:Array.isArray(b.dailyFruits)?dedupe(b.dailyFruits):[]})); S.calNotes=S.calNotes||{}; S.recipes=S.recipes||[]; S.shoppingWeekOffset=S.shoppingWeekOffset||0;}
 function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(S));}catch(e){console.warn(e);}}
 function load(){try{const d=localStorage.getItem(STORAGE_KEY); if(d){S={...deepClone(INITIAL_STATE),...JSON.parse(d)}; ensureState(); return;} for(const k of OLD_KEYS){const o=localStorage.getItem(k); if(o){S={...deepClone(INITIAL_STATE),...JSON.parse(o)}; ensureState(); save(); return;}} ensureState();}catch(e){console.warn(e); ensureState();}}
 function allFoods(){return dedupe([...S.safeFoods,...S.pendingFoods,...S.dairyFoods]);}
@@ -141,7 +152,7 @@ function addFoodTo(pool, food){
 function isAgeRestrictedFood(f){const name=String(f?.name||'').toLowerCase(); const m=monthDiffFromBirth(); if(m===null&&(name.includes('leche')||name.includes('yogur')||name.includes('queso')))return true; if(name.includes('leche')&&m<12)return true; if((name.includes('yogur')||name.includes('queso'))&&m<9)return true; return false;}
 function isDairyFood(f){const name=String(f?.name||'').toLowerCase(); return name.includes('leche')||name.includes('yogur')||name.includes('queso');}
 function passesPlanFilters(f){f=enrichFood(f); if(isReaction(f.name))return false; if(isAgeRestrictedFood(f))return false; if(PLAN_FILTERS.avoidLatex&&f.latex)return false; if(PLAN_FILTERS.avoidDairy&&isDairyFood(f))return false; return true;}
-function pendingAllergens(){return dedupe(S.pendingFoods).filter(f=>f.allergen&&passesPlanFilters(f));}
+function pendingAllergens(){return dedupe(S.pendingFoods).filter(f=>f&&f.allergen===true&&passesPlanFilters(f));}
 function normalPendingFoods(){return dedupe(S.pendingFoods).filter(f=>!f.allergen&&passesPlanFilters(f));}
 function allAllergenFoods(){return dedupe([...S.pendingFoods,...S.safeFoods,...S.dairyFoods]).filter(f=>f.allergen);}
 function digestScore(arr){return dedupe(arr).reduce((sum,f)=>sum+(f.hydrating?1:0)-(f.dense?1:0),0);}
