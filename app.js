@@ -1,6 +1,6 @@
-console.log('BabyFood base estable PC cargada v30');
+console.log('BabyFood base estable PC cargada v31');
 'use strict';
-const STORAGE_KEY='bf_base_estable_pc_v30';
+const STORAGE_KEY='bf_base_estable_pc_v31';
 const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
@@ -416,7 +416,10 @@ function generateBlocks(startDate,count=10,endDate=null){
     const b={id:Date.now()+i,type,startDate:current,endDate:bEnd,foods:rec.foods,newFood:rec.newFood||null,completed:false,reactionFood:null};
     b.dailyFruits=getDailyFruits(b,context);
     blocks.push(b);
-    if(rec.newFood)usedNew.add(rec.newFood.name);
+    if(rec.newFood){
+      usedNew.add(rec.newFood.name);
+      virtuallyPromoteFoodForPlanning(rec.newFood);
+    }
     current=addDays(b.endDate,1);
   }
   return blocks;
@@ -449,6 +452,22 @@ function virtuallyPromoteIntroducedBefore(dateStr){
     if(!safeArr(S.safeFoods).some(f=>f.name===n)) S.safeFoods.push(food);
   });
   ensureState();
+}
+
+function virtuallyPromoteFoodForPlanning(food){
+  // Durante la generación de un horizonte largo, un alimento nuevo que ya ha completado
+  // su bloque anterior sin reacción debe poder usarse como seguro en bloques posteriores.
+  // Esto evita que una regeneración tras reacción se quede usando solo los seguros iniciales.
+  food=enrichFood(food);
+  if(!food || !food.name || isReaction(food.name))return;
+  const n=food.name;
+  S.pendingFoods=safeArr(S.pendingFoods).filter(f=>f.name!==n);
+  S.dairyFoods=safeArr(S.dairyFoods).filter(f=>f.name!==n);
+  S.allergenPool=[];
+  S.testing=safeArr(S.testing).filter(f=>f.name!==n);
+  if(!safeArr(S.safeFoods).some(f=>f.name===n))S.safeFoods.push(food);
+  S.safeFoods=dedupe(S.safeFoods);
+  S.pendingFoods=dedupe(S.pendingFoods);
 }
 
 function generatePlan(){
