@@ -1,4 +1,4 @@
-console.log('BabyFood editable v15 cargada');
+console.log('BabyFood editable v16 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v10';
 const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
@@ -98,7 +98,7 @@ const INITIAL_STATE={
  reactions:[],
  reactionHistory:[],dairyUnlocked9:false,dairyUnlocked12:false,dairyPromptSeen9:false,dairyPromptSeen12:false
 };
-let S=deepClone(INITIAL_STATE); let calViewDate=new Date(); let lastReportText=''; let BLOCK_SWAP=null; let DAY_SWAP=null; let GENERATION_JITTER=0;
+let S=deepClone(INITIAL_STATE); let calViewDate=new Date(); let lastReportText=''; let BLOCK_SWAP=null; let DAY_SWAP=null; let DAY_ADD=null; let GENERATION_JITTER=0;
 function deepClone(o){return JSON.parse(JSON.stringify(o));}
 function today(){return fmtDate(new Date());}
 function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -183,9 +183,9 @@ function addReactionRecord(food,source='manual',date=today()){food=enrichFood(fo
 function resolveReaction(n){let changed=false; (S.reactionHistory||[]).forEach(r=>{if(r.name===n&&r.status==='active'){r.status='resolved'; r.resolvedDate=today(); changed=true;}}); if(isReaction(n)){S.reactions=S.reactions.filter(r=>r.name!==n); changed=true;} return changed;}
 function showReactionInfo(n){const r=activeReactionInfo(n) || (S.reactionHistory||[]).slice().reverse().find(x=>x.name===n); if(!r){alert('No hay reacción registrada para este alimento.');return;} document.getElementById('block-detail-title').textContent='🚫 Reacción registrada'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red"><b>${escapeHtml(r.name)}</b></div><div style="font-size:13px;line-height:1.7;color:var(--text2)"><b>Fecha:</b> ${escapeHtml(formatShortDate(r.date))}<br><b>Estado:</b> ${r.status==='active'?'Activa':'Resuelta'}${r.resolvedDate?`<br><b>Resuelta:</b> ${escapeHtml(formatShortDate(r.resolvedDate))}`:''}</div>`; openModal('modal-block-detail');}
 function openReactionHistory(){const rows=(S.reactionHistory||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))); document.getElementById('block-detail-title').textContent='📜 Historial de reacciones'; document.getElementById('block-detail-content').innerHTML=rows.length?rows.map(r=>`<div class="food-row"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge ${r.status==='active'?'b-reaction':'b-gray'}">${r.status==='active'?'Activa':'Resuelta'}</span></div><div class="food-meta">${escapeHtml(formatShortDate(r.date))}${r.resolvedDate?' · resuelta '+escapeHtml(formatShortDate(r.resolvedDate)):''}</div></div></div>`).join(''):'<div class="empty">Sin historial de reacciones</div>'; openModal('modal-block-detail');}
-function showScreen(name){BLOCK_SWAP=null;DAY_SWAP=null;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
+function showScreen(name){BLOCK_SWAP=null;DAY_SWAP=null;DAY_ADD=null;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
 function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); const el=document.getElementById(id); if(!el)return; el.classList.add('open'); document.body.style.overflow='hidden'; if(!history.state||history.state.modal!==id){try{history.pushState({modal:id},'',location.href);}catch(e){}}}
-function closeModal(id){BLOCK_SWAP=null;DAY_SWAP=null;const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
+function closeModal(id){BLOCK_SWAP=null;DAY_SWAP=null;DAY_ADD=null;const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
 window.addEventListener('popstate',()=>{document.querySelectorAll('.modal-overlay.open').forEach(el=>closeModal(el.id));});
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
@@ -567,22 +567,7 @@ function getDailyFruits(b,existing=[]){let pool=safeFruits(); const nf=enrichFoo
 function fruitForDate(b,ds){const idx=Math.max(0,Math.min(2,daysBetween(b.startDate,ds))); return (Array.isArray(b.dailyFruits)&&b.dailyFruits[idx])||getDailyFruits(b)[idx]||null;}
 function checkBlockCompletions(){const tod=today(); let changed=false; S.blocks.forEach(b=>{if(!b.completed&&b.endDate<tod&&!b.reactionFood&&b.newFood){const n=b.newFood.name; removeEverywhere(n); resolveReaction(n); if(!isSafe(n))S.safeFoods.push(enrichFood(b.newFood)); b.completed=true; changed=true;}}); if(changed)save();}
 function renderCurrentBlockCard(b){const dayNum=daysBetween(b.startDate,today())+1; const fruit=fruitForDate(b,today()); return `<div class="card" style="border:2px solid var(--accent)"><div class="mini-title">📍 Bloque actual — Día ${dayNum} de 3</div><div style="font-size:15px;font-weight:900;margin-bottom:5px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque seguro'}</div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:12px">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">🍲 Mediodía</div><div class="block-foods">${(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join('')}${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''}</div><div class="mini-title" style="margin-top:12px">🍎 Fruta de tarde</div><div class="block-foods">${fruit?`<span class="block-food-tag ${b.newFood&&fruit.name===b.newFood.name?'block-food-new':''}">${b.newFood&&fruit.name===b.newFood.name?'✨ ':''}${escapeHtml(fruit.name)}</span>`:'<span class="badge b-gray">Sin fruta segura</span>'}</div>${b.newFood?`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}" style="margin-top:12px;margin-bottom:0">Alimento nuevo: <strong>${escapeHtml(b.newFood.name)}</strong></div>`:''}<button class="btn btn-sm btn-danger" style="margin-top:12px;width:100%" onclick="openReactionForBlock(${b.id})">Registrar reacción</button></div>`;}
-function blockManualSummary(b){
-  const rows=[];
-  dateRangeDays(b.startDate,b.endDate).forEach((ds,idx)=>{
-    const ov=getDayOverride(ds);
-    if(!ov||(!ov.deleted&&!ov.noEat&&!ov.fruitName&&!(ov.extraFoods||[]).length&&!(ov.removedNames||[]).length))return;
-    const bits=[];
-    if(ov.noEat||ov.deleted)bits.push('sin plan');
-    if(ov.fruitName)bits.push('fruta: '+ov.fruitName);
-    if((ov.extraFoods||[]).length)bits.push('+ '+(ov.extraFoods||[]).map(f=>f.name).join(', '));
-    if((ov.removedNames||[]).length)bits.push('− '+(ov.removedNames||[]).join(', '));
-    rows.push(`<span class="block-food-tag b-tag">Día ${parseDate(ds).getDate()} editado: ${escapeHtml(bits.join(' · '))}</span>`);
-  });
-  if(!rows.length && !b.manualNewFood)return '';
-  const lock=b.manualNewFood&&b.newFood?`<span class="block-food-tag b-tag">🔒 nuevo manual: ${escapeHtml(b.newFood.name)}</span>`:'';
-  return `<span style="flex-basis:100%;height:0"></span>${lock}${rows.join('')}`;
-}
+function blockManualSummary(b){return ''; }
 function blockSwapInlineHtml(b,role,idx,current){
   if(!BLOCK_SWAP||BLOCK_SWAP.id!==b.id||BLOCK_SWAP.role!==role||BLOCK_SWAP.idx!==idx)return '';
   const candidates=blockSwapCandidates(b,role,idx);
@@ -624,10 +609,11 @@ function renderShoppingList(){const w=weekRange(S.shoppingWeekOffset||0); const 
 function renderCalendario(){checkBlockCompletions(); const y=calViewDate.getFullYear(),m=calViewDate.getMonth(); document.getElementById('cal-month-label').textContent=MONTHS[m]+' '+y; document.getElementById('cal-headers').innerHTML=DAYS_SHORT.map(d=>`<div class="cal-dh">${d}</div>`).join(''); const first=new Date(y,m,1).getDay(); const offset=first===0?6:first-1; const days=new Date(y,m+1,0).getDate(); let cells=''; for(let i=0;i<offset;i++)cells+='<div class="cal-cell c-empty"></div>'; for(let d=1;d<=days;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const b=findBlockForDate(ds); let cls='cal-cell'; if(ds===today())cls+=' today'; if(ds<today())cls+=' c-past'; if(isDayDeleted(ds))cls+=' c-empty'; else if(b?.reactionFood)cls+=' c-reaction'; else if(b?.type==='allergen')cls+=' c-allergen'; else if(b?.type==='normal')cls+=' c-normal'; const lab=isDayDeleted(ds)?'<div class="ctype">OFF</div>':(b?`<div class="ctype">${b.type==='allergen'?'ALG':'SEG'}</div>`:''); cells+=`<div class="${cls}" onclick="openDayModal('${ds}')"><span class="cnum">${d}</span>${lab}</div>`;} document.getElementById('cal-cells').innerHTML=cells;}
 function changeMonth(dir){calViewDate.setMonth(calViewDate.getMonth()+dir); renderCalendario();}
 function openDayModal(ds){
-  DAY_SWAP=null;
+  if(DAY_SWAP&&DAY_SWAP.ds!==ds)DAY_SWAP=null;
+  if(DAY_ADD&&DAY_ADD.ds!==ds)DAY_ADD=null;
   const d=parseDate(ds); const b=findBlockForDate(ds); const ov=getDayOverride(ds);
   document.getElementById('modal-day-title').innerHTML='';
-  let html=`<div class="block-title-line"><div class="modal-title">${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div><div class="block-title-actions"><button class="btn btn-sm dice-random-btn" title="Generar día aleatorio" aria-label="Generar día aleatorio" onclick="randomizeDayFromHeader('${ds}')"><span class="dice-icon" aria-hidden="true"><span class="die die-back"><span class="pip p1"></span><span class="pip p2"></span></span><span class="die die-six"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span></span></span></button><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar día" onclick="saveDayManual('${ds}')">💾</button></div></div>`;
+  let html=`<div class="block-title-line"><div class="modal-title">${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div><div class="block-title-actions day-title-actions"><button class="btn btn-sm dice-random-btn" title="Generar día aleatorio" aria-label="Generar día aleatorio" onclick="randomizeDayFromHeader('${ds}')"><span class="dice-icon" aria-hidden="true"><span class="die die-back"><span class="pip p1"></span><span class="pip p2"></span></span><span class="die die-six"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span></span></span></button><span class="day-add-wrap"><button class="btn btn-sm day-add-btn" title="Añadir alimento" onclick="event.stopPropagation();openDayAddFood('${ds}')">+</button>${dayAddPopoverHtml(ds)}</span><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar día" onclick="saveDayManual('${ds}')">💾</button></div></div>`;
   if(b&&!isDayDeleted(ds)){
     const fr=getFruitForDateEffective(b,ds);
     const lunch=getFoodsForDate(b,ds);
@@ -643,7 +629,9 @@ function openDayModal(ds){
   } else if(b&&isDayDeleted(ds)){
     html+=`<div class="empty">Este día está marcado como sin plan / no comió.</div><button class="btn btn-full btn-primary" onclick="restoreDay('${ds}')">Restaurar día</button>`;
   } else {
-    html+=`<div class="empty">No hay bloque programado para este día</div><button class="btn btn-full btn-primary" onclick="fillBlockAtDate('${ds}')">Generar bloque aquí</button>`;
+    const manualFoods=dedupe(ov.extraFoods||[]);
+    html+=manualFoods.length?`<div class="mini-title">🍲 Alimentos del día</div><div class="block-foods">${manualFoods.map((f,i)=>dayFoodTagHtml(ds,null,f,'manual',i,'')).join('')}</div>`:`<div class="empty">No hay bloque programado para este día</div>`;
+    html+=`<button class="btn btn-full btn-primary" onclick="fillBlockAtDate('${ds}')">Generar bloque aquí</button>`;
   }
   const note=S.calNotes[ds]||'';
   html+=`<div class="divider"></div><div class="field-label">Nota del día</div><textarea id="day-note" rows="2" style="resize:none;margin-top:5px;margin-bottom:10px">${escapeHtml(note)}</textarea><button class="btn btn-full btn-primary" onclick="saveNote('${ds}')">Guardar nota</button>`;
@@ -713,11 +701,46 @@ function daySwapInlineHtml(ds,b,role,idx,current){
   if(!candidates.length)return `<div class="block-swap-inline"><span class="food-meta">No hay sustitutos compatibles</span></div>`;
   return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();applyDayFoodSwap('${ds}','${role}',${idx},${escapeAttr(jsStr(f.name))})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
 }
+function dayAddPopoverHtml(ds){
+  if(!DAY_ADD||DAY_ADD.ds!==ds)return '';
+  const groups=[
+    ['Seguros', sortFoodsAZ(S.safeFoods||[])],
+    ['Pendientes', sortFoodsAZ(S.pendingFoods||[])]
+  ];
+  let html='';
+  groups.forEach(([label,items])=>{
+    const usable=items.filter(f=>f&&f.name&&!isReaction(f.name));
+    if(!usable.length)return;
+    html+=`<div class="day-add-group">${escapeHtml(label)}</div>`;
+    ['verdura','cereal','proteina','fruta'].forEach(cat=>{
+      const arr=usable.filter(f=>f.cat===cat);
+      if(!arr.length)return;
+      html+=`<div class="day-add-cat">${CAT_ICON[cat]||''} ${escapeHtml(CAT_LABEL[cat])}</div>`;
+      html+=arr.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();addFoodToDayFromPicker('${ds}',${escapeAttr(jsStr(f.name))})">${escapeHtml(f.name)}</button>`).join('');
+    });
+  });
+  return `<div class="block-swap-inline day-add-popover">${html||'<span class="food-meta">No hay alimentos disponibles</span>'}</div>`;
+}
+function openDayAddFood(ds){
+  DAY_SWAP=null;
+  DAY_ADD=(DAY_ADD&&DAY_ADD.ds===ds)?null:{ds};
+  openDayModal(ds);
+}
+function addFoodToDayFromPicker(ds,name){
+  const f=allSelectableFoods().find(x=>x.name===name);
+  if(!f)return;
+  const ov=getDayOverride(ds);
+  ov.extraFoods=dedupe([...(ov.extraFoods||[]),enrichFood(f)]);
+  DAY_ADD=null;
+  setDayOverride(ds,ov);
+  save(); renderPlan(); renderCalendario(); openDayModal(ds);
+}
 function dayFoodTagHtml(ds,b,f,role,idx,extraClass=''){
   if(!f)return '';
   const isNew=!!(b&&b.newFood&&f.name===b.newFood.name);
   const label=role==='fruit'?`🍎 ${isNew?'✨ ':''}${escapeHtml(f.name)}`:`${isNew?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
-  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="event.stopPropagation();openDayFoodSwap('${ds}','${role}',${idx})">${label}</button>${daySwapInlineHtml(ds,b,role,idx,f)}</span>`;
+  const canSwap=!!b;
+  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="event.stopPropagation();${canSwap?`openDayFoodSwap('${ds}','${role}',${idx})`:`openDayAddFood('${ds}')`}">${label}</button>${canSwap?daySwapInlineHtml(ds,b,role,idx,f):''}</span>`;
 }
 function daySwapCandidates(ds,b,role,idx){
   if(!b)return [];
@@ -736,6 +759,7 @@ function daySwapCandidates(ds,b,role,idx){
   return dedupe(pool).filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
 }
 function openDayFoodSwap(ds,role,idx){
+  DAY_ADD=null;
   DAY_SWAP=(DAY_SWAP&&DAY_SWAP.ds===ds&&DAY_SWAP.role===role&&DAY_SWAP.idx===idx)?null:{ds,role,idx};
   openDayModal(ds);
 }
@@ -755,15 +779,14 @@ function applyDayFoodSwap(ds,role,idx,name){
     }
     ov.extraFoods=dedupe([...(ov.extraFoods||[]),enrichFood(f)]);
   }
-  ov.manual=true;
   DAY_SWAP=null;
   setDayOverride(ds,ov);
   save(); renderPlan(); renderCalendario(); openDayModal(ds);
 }
 function closeDaySwapIfOpen(){
-  if(!DAY_SWAP)return;
-  const ds=DAY_SWAP.ds;
-  DAY_SWAP=null;
+  if(!DAY_SWAP&&!DAY_ADD)return;
+  const ds=(DAY_SWAP&&DAY_SWAP.ds)||(DAY_ADD&&DAY_ADD.ds);
+  DAY_SWAP=null; DAY_ADD=null;
   if(document.getElementById('modal-day')?.classList.contains('open')) openDayModal(ds);
 }
 
@@ -785,7 +808,6 @@ function randomizeDayFromHeader(ds){
   ov.extraFoods=dedupe(lunch);
   const fruit=pickBalanced(safeFruits(),new Set(),usageCounts(S.blocks),recentUseMap(S.blocks,5),{randomize:true});
   if(fruit)ov.fruitName=fruit.name;
-  ov.manual=true;
   setDayOverride(ds,ov);
   save(); renderCalendario(); renderPlan(); openDayModal(ds);
 }
@@ -1000,7 +1022,7 @@ function regenerateFromDateManual(ds){
 
 
 document.addEventListener('click',function(e){
-  if(e.target.closest('.block-food-edit-wrap'))return;
+  if(e.target.closest('.block-food-edit-wrap')||e.target.closest('.day-add-wrap'))return;
   if(BLOCK_SWAP&&e.target.closest('#modal-block-detail .modal-sheet')) closeBlockSwapIfOpen();
   if(DAY_SWAP&&e.target.closest('#modal-day .modal-sheet')) closeDaySwapIfOpen();
 });
@@ -1021,7 +1043,7 @@ Object.assign(window, {
   generateDateReport,
   generatePlan,
   rebuildFutureAfterReaction,
-  saveDayManual, randomizeDayFromHeader, deleteDay, saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, randomizeBlockFromHeader, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
+  saveDayManual, randomizeDayFromHeader, openDayAddFood, addFoodToDayFromPicker, deleteDay, saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, randomizeBlockFromHeader, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
   importData,
   markReactionAllergen,
   markReactionFromAny,

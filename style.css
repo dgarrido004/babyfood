@@ -75,3 +75,14 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 /* Editable v15: calendario usa mismo popover compacto del bloque */
 #modal-day .block-swap-inline{max-height:198px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
 #modal-day .block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0;}
+
+/* Editable v16: calendario limpio, añadir alimento y popovers flotantes */
+.day-add-wrap{position:relative;display:inline-flex;align-items:center;overflow:visible;z-index:90}
+.day-add-wrap:has(.day-add-popover){z-index:100}
+.day-add-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:0;font-size:20px;line-height:1;background:rgba(255,255,255,.72);border-color:var(--border2);color:var(--accent)}
+.day-add-popover{right:0;left:auto;min-width:230px;max-width:300px;max-height:240px;padding:6px}
+.day-add-group{font-size:11px;font-weight:950;color:var(--accent);text-transform:uppercase;letter-spacing:.5px;padding:7px 9px 3px}
+.day-add-cat{font-size:11px;font-weight:900;color:var(--text3);padding:7px 9px 2px}
+#modal-day .block-swap-inline{max-height:198px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#modal-day .day-add-popover{max-height:240px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#modal-day .block-swap-inline::-webkit-scrollbar,#modal-day .day-add-popover::-webkit-scrollbar{display:none;width:0;height:0;}
