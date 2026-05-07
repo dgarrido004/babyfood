@@ -36,3 +36,9 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0}
 .block-swap-option{min-height:36px;touch-action:manipulation}
 .modal-overlay:not(.open) .block-swap-inline{display:none}
+
+
+/* Editable v10: popover con lista completa por categoría y scroll táctil */
+.block-swap-inline{max-height:min(320px,55vh);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;pointer-events:auto;z-index:10000}
+.block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0}
+.block-swap-option{min-height:38px;touch-action:manipulation}

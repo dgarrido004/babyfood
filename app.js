@@ -1,7 +1,7 @@
-console.log('BabyFood editable v9 cargada');
+console.log('BabyFood editable v10 cargada');
 'use strict';
-const STORAGE_KEY='bf_editable_v8';
-const OLD_KEYS=['bf_editable_v6','bf_editable_v5','bf_editable_v3'];
+const STORAGE_KEY='bf_editable_v10';
+const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -797,27 +797,35 @@ function foodPoolNameByFood(food){
 function blockSwapCandidates(b,role,idx){
   let current=null;
   let sourcePool='safeFoods';
+
   if(role==='new'){
     current=b.newFood;
     sourcePool='pendingFoods';
   }else if(role==='fruit'){
-    current=fruitForDate(b,addDays(b.startDate,idx));
-    // Si la fruta visible es el alimento nuevo, debe sustituirse por pendientes de fruta.
-    // Si es fruta normal del bloque, debe sustituirse por frutas seguras.
-    const isNewFruit=!!(current&&b.newFood&&current.name===b.newFood.name&&b.newFood.cat==='fruta');
+    const ds=addDays(b.startDate,idx);
+    current=fruitForDate(b,ds);
+    const isNewFruit=!!(current&&b.newFood&&current.name===b.newFood.name&&b.newFood.cat==='fruta'&&!isSafe(current.name));
     sourcePool=isNewFruit?'pendingFoods':'safeFoods';
   }else{
     current=(b.foods||[])[idx];
     sourcePool=foodPoolNameByFood(current)||'safeFoods';
   }
-  if(!current)return [];
+
+  if(!current||!current.cat)return [];
+
   let pool=[];
   if(sourcePool==='pendingFoods'){
-    if(role==='new'&&b.type==='allergen') pool=orderAllergens(pendingAllergens());
+    if((role==='new'||role==='fruit') && b.type==='allergen') pool=orderAllergens(pendingAllergens());
     else pool=normalPendingFoods();
-  }else if(sourcePool==='dairyFoods') pool=S.dairyFoods||[];
-  else pool=S.safeFoods||[];
-  return dedupe(pool).filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name));
+  }else if(sourcePool==='dairyFoods'){
+    pool=S.dairyFoods||[];
+  }else{
+    pool=S.safeFoods||[];
+  }
+
+  return dedupe(pool)
+    .filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name))
+    .sort((a,b)=>a.name.localeCompare(b.name,'es'));
 }
 function openBlockFoodSwap(id,role,idx){
   BLOCK_SWAP=(BLOCK_SWAP&&BLOCK_SWAP.id===id&&BLOCK_SWAP.role===role&&BLOCK_SWAP.idx===idx)?null:{id,role,idx};
