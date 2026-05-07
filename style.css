@@ -69,3 +69,5 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .die-back .p1{left:3px;top:3px}.die-back .p2{right:3px;bottom:3px}
 .mini-toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(10px);background:rgba(44,26,14,.92);color:#fff;border-radius:999px;padding:8px 13px;font-size:12px;font-weight:900;letter-spacing:.1px;opacity:0;pointer-events:none;z-index:500;transition:opacity .18s,transform .18s;box-shadow:0 8px 24px rgba(44,26,14,.18);white-space:nowrap}
 .mini-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+#modal-block-detail .modal-sheet > button[onclick="closeModal('modal-block-detail')"],#modal-day .modal-sheet > button[onclick="closeModal('modal-day')"]{display:none!important}
