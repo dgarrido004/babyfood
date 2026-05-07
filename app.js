@@ -1,4 +1,4 @@
-console.log('BabyFood editable v12 cargada');
+console.log('BabyFood editable v13 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v10';
 const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
@@ -604,13 +604,12 @@ function openBlockDetail(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
   const title=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal';
   document.getElementById('block-detail-title').innerHTML='';
-  document.getElementById('block-detail-content').innerHTML=`<div class="block-title-line"><div class="modal-title">${title}</div><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar bloque" onclick="saveManualBlock(${b.id})">💾</button></div>
+  document.getElementById('block-detail-content').innerHTML=`<div class="block-title-line"><div class="modal-title">${title}</div><div class="block-title-actions"><button class="btn btn-sm dice-random-btn" title="Generar bloque aleatorio" aria-label="Generar bloque aleatorio" onclick="randomizeBlockFromHeader(${b.id})"><span class="dice-icon" aria-hidden="true"><span class="die die-back"><span class="pip p1"></span><span class="pip p2"></span></span><span class="die die-six"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span></span></span></button><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar bloque" onclick="saveManualBlock(${b.id})">💾</button></div></div>
   <div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div>
   <div class="mini-title">Alimentos del bloque</div>
   <div class="block-foods">${foodTagsForBlock(b)}</div>
   ${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
   <div class="divider"></div>
-  <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
   <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
   <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
   openModal('modal-block-detail');
@@ -751,6 +750,23 @@ function applyFixedFoodsToLunch(lunch,fixed){
     else if(lunch.length<3)lunch.push(ff);
   });
   return dedupe(lunch).slice(0,3);
+}
+
+function showMiniToast(text){
+  let el=document.getElementById('mini-toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='mini-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent=text;
+  el.className='mini-toast show';
+  clearTimeout(showMiniToast._t);
+  showMiniToast._t=setTimeout(()=>{el.className='mini-toast';},1150);
+}
+function randomizeBlockFromHeader(id){
+  showMiniToast('Generar bloque aleatorio');
+  remakeBlock(id);
 }
 function remakeBlock(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
@@ -919,7 +935,7 @@ Object.assign(window, {
   generateDateReport,
   generatePlan,
   rebuildFutureAfterReaction,
-  saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
+  saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, randomizeBlockFromHeader, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
   importData,
   markReactionAllergen,
   markReactionFromAny,
