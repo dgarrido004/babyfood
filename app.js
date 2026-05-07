@@ -1,6 +1,6 @@
-console.log('BabyFood editable v5 cargada');
+console.log('BabyFood editable v6 cargada');
 'use strict';
-const STORAGE_KEY='bf_editable_v5';
+const STORAGE_KEY='bf_editable_v6';
 const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
@@ -184,9 +184,10 @@ function resolveReaction(n){let changed=false; (S.reactionHistory||[]).forEach(r
 function showReactionInfo(n){const r=activeReactionInfo(n) || (S.reactionHistory||[]).slice().reverse().find(x=>x.name===n); if(!r){alert('No hay reacción registrada para este alimento.');return;} document.getElementById('block-detail-title').textContent='🚫 Reacción registrada'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red"><b>${escapeHtml(r.name)}</b></div><div style="font-size:13px;line-height:1.7;color:var(--text2)"><b>Fecha:</b> ${escapeHtml(formatShortDate(r.date))}<br><b>Estado:</b> ${r.status==='active'?'Activa':'Resuelta'}${r.resolvedDate?`<br><b>Resuelta:</b> ${escapeHtml(formatShortDate(r.resolvedDate))}`:''}</div>`; openModal('modal-block-detail');}
 function openReactionHistory(){const rows=(S.reactionHistory||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))); document.getElementById('block-detail-title').textContent='📜 Historial de reacciones'; document.getElementById('block-detail-content').innerHTML=rows.length?rows.map(r=>`<div class="food-row"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge ${r.status==='active'?'b-reaction':'b-gray'}">${r.status==='active'?'Activa':'Resuelta'}</span></div><div class="food-meta">${escapeHtml(formatShortDate(r.date))}${r.resolvedDate?' · resuelta '+escapeHtml(formatShortDate(r.resolvedDate)):''}</div></div></div>`).join(''):'<div class="empty">Sin historial de reacciones</div>'; openModal('modal-block-detail');}
 function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
-function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';}
-function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
+function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); const el=document.getElementById(id); if(!el)return; el.classList.add('open'); document.body.style.overflow='hidden'; if(!history.state||history.state.modal!==id){try{history.pushState({modal:id},'',location.href);}catch(e){}}}
+function closeModal(id){const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
+window.addEventListener('popstate',()=>{document.querySelectorAll('.modal-overlay.open').forEach(el=>closeModal(el.id));});
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
 function renderFoodGroups(items){
   items=sortFoodsAZ(items);
@@ -584,12 +585,12 @@ function blockSwapInlineHtml(b,role,idx,current){
   if(!BLOCK_SWAP||BLOCK_SWAP.id!==b.id||BLOCK_SWAP.role!==role||BLOCK_SWAP.idx!==idx)return '';
   const candidates=blockSwapCandidates(b,role,idx);
   if(!candidates.length)return `<div class="block-swap-inline"><span class="food-meta">No hay sustitutos compatibles</span></div>`;
-  return `<div class="block-swap-inline"><select onchange="applyBlockFoodSwap(${b.id},'${role}',${idx},this.value)"><option value="">Cambiar ${escapeHtml(current?.name||'alimento')}...</option>${candidates.map(f=>`<option value="${escapeAttr(f.name)}">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</option>`).join('')}</select></div>`;
+  return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="applyBlockFoodSwap(${b.id},'${role}',${idx},${jsStr(f.name)})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
 }
 function blockFoodTagHtml(b,f,role,idx,extraClass=''){
   if(!f)return '';
   const label=role==='fruit'?`Día ${parseDate(addDays(b.startDate,idx)).getDate()}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}`:`${role==='new'?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
-  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag ${extraClass}" style="border:0;cursor:pointer" onclick="openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>${blockSwapInlineHtml(b,role,idx,f)}</span>`;
+  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>${blockSwapInlineHtml(b,role,idx,f)}</span>`;
 }
 function foodTagsForBlock(b){
   const lunch=(b.foods||[]).filter(Boolean).map((f,i)=>blockFoodTagHtml(b,f,'food',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('');
@@ -602,13 +603,13 @@ function renderMilestone(){return pendingAllergens().length?'':`<div class="card
 function openBlockDetail(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
   const title=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal';
-  document.getElementById('block-detail-title').innerHTML=`<span>${title}</span><button class="btn btn-sm btn-primary" style="float:right;padding:4px 9px" title="Guardar bloque" onclick="saveManualBlock(${b.id})">💾</button>`;
-  document.getElementById('block-detail-content').innerHTML=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div>
+  document.getElementById('block-detail-title').innerHTML='';
+  document.getElementById('block-detail-content').innerHTML=`<div class="block-title-line"><div class="modal-title">${title}</div><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar bloque" onclick="saveManualBlock(${b.id})">💾</button></div>
+  <div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div>
   <div class="mini-title">Alimentos del bloque</div>
-  <div class="info-box info-blue" style="font-size:11px">Toca cualquier alimento para sustituirlo por otro compatible. El cambio se aplica al seleccionar.</div>
   <div class="block-foods">${foodTagsForBlock(b)}</div>
   ${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
-  <div class="divider"></div><div class="section-title">✏️ Editar bloque</div>
+  <div class="divider"></div>
   <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
   <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
   <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
@@ -756,11 +757,13 @@ function remakeBlock(id){
   const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[];
   try{
     b.remakeNonce=(b.remakeNonce||0)+1;
+    b.remakeHistory=Array.isArray(b.remakeHistory)?b.remakeHistory:[];
     const base=S.blocks.filter(x=>x.id!==id);
     S.blocks=base;
     virtuallyPromoteIntroducedBefore(b.startDate);
     const fakeOld={...b,id:Date.now()+Math.random(),startDate:addDays(b.startDate,-3),endDate:addDays(b.startDate,-1)};
-    const context=[...S.blocks,fakeOld];
+    const historyBlocks=(b.remakeHistory||[]).slice(-6).map((names,hidx)=>({id:Date.now()+hidx+99,startDate:addDays(b.startDate,-6-hidx*3),endDate:addDays(b.startDate,-4-hidx*3),foods:names.map(n=>S.safeFoods.find(f=>f.name===n)).filter(Boolean),dailyFruits:[],newFood:null}));
+    const context=[...S.blocks,...historyBlocks,fakeOld];
     const fixed=collectManualFixedFoods(b);
     if(b.manualNewFood&&b.newFood){
       const preserved=enrichFood(b.newFood);
@@ -782,7 +785,7 @@ function remakeBlock(id){
     }
   }catch(e){console.error(e); alert('No se pudo rehacer el bloque: '+(e.message||e)); S.blocks=old; nb=[];}
   finally{restoreFoodState(snap);}
-  if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); renderCalendario(); renderPlan(); openBlockDetail(id);}
+  if(nb.length){const generatedNames=dedupe([...(nb[0].foods||[]),...(nb[0].newFood?[nb[0].newFood]:[]),...(nb[0].dailyFruits||[])]).map(f=>f.name); nb[0].remakeHistory=[...((b.remakeHistory||[]).slice(-8)),generatedNames]; S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); renderCalendario(); renderPlan(); openBlockDetail(id);}
 }
 function blockSwapCandidates(b,role,idx){
   if(role==='new'){
@@ -826,7 +829,7 @@ function saveManualBlock(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
   b.manualSaved=true;
   b.manualFixedFoods=dedupe([...(b.manualFixedFoods||[]).map(n=>({name:n})),...(b.foods||[]).filter(f=>f&&f.name&&b.manualFixedFoods&&b.manualFixedFoods.includes(f.name))]).map(f=>f.name);
-  save(); renderPlan(); renderCalendario(); openBlockDetail(id);
+  save(); renderPlan(); renderCalendario(); closeModal('modal-block-detail');
 }
 function changeBlockNewFood(id){
   const b=S.blocks.find(x=>x.id===id); const name=document.getElementById('edit-block-new')?.value||'';

@@ -8,3 +8,14 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 
 .food-row-click{cursor:pointer;gap:8px}.food-row-click:hover{background:rgba(255,255,255,.45);border-radius:10px;padding-left:6px;padding-right:6px}.food-chevron{font-size:22px;font-weight:900;color:var(--text3);padding-left:8px}.food-name .badge{vertical-align:middle}
 .block-food-edit-wrap{display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;max-width:100%}.block-swap-inline{width:100%;min-width:190px;margin:2px 0 6px}.block-swap-inline select{font-size:12px;padding:8px 10px;border-radius:10px;background:#fff}.modal-title{display:flex;align-items:center;justify-content:space-between;gap:8px}.modal-title .btn{margin-left:auto}
+
+/* Editable v6 */
+.block-food-edit-wrap{position:relative;display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px}
+.block-food-edit{border:0;cursor:pointer;background:rgba(255,255,255,.75);font-family:inherit}
+.block-food-edit.block-food-new{background:var(--accent);color:#fff}
+.block-swap-inline{background:#fff;border:1px solid var(--border2);border-radius:14px;padding:6px;box-shadow:0 8px 22px rgba(44,26,14,.12);min-width:145px;z-index:5}
+.block-swap-option{display:block;width:100%;border:0;background:transparent;text-align:left;padding:8px 10px;border-radius:10px;font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer}
+.block-swap-option:active{background:var(--accent-light)}
+.block-title-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.block-title-line .modal-title{margin-bottom:0}
+.save-icon-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:0;font-size:16px}
