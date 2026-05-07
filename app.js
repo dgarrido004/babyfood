@@ -1,4 +1,4 @@
-console.log('BabyFood editable v1 cargada');
+console.log('BabyFood editable v2 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v1';
 const OLD_KEYS=[];
@@ -564,7 +564,23 @@ function getDailyFruits(b,existing=[]){let pool=safeFruits(); const nf=enrichFoo
 function fruitForDate(b,ds){const idx=Math.max(0,Math.min(2,daysBetween(b.startDate,ds))); return (Array.isArray(b.dailyFruits)&&b.dailyFruits[idx])||getDailyFruits(b)[idx]||null;}
 function checkBlockCompletions(){const tod=today(); let changed=false; S.blocks.forEach(b=>{if(!b.completed&&b.endDate<tod&&!b.reactionFood&&b.newFood){const n=b.newFood.name; removeEverywhere(n); resolveReaction(n); if(!isSafe(n))S.safeFoods.push(enrichFood(b.newFood)); b.completed=true; changed=true;}}); if(changed)save();}
 function renderCurrentBlockCard(b){const dayNum=daysBetween(b.startDate,today())+1; const fruit=fruitForDate(b,today()); return `<div class="card" style="border:2px solid var(--accent)"><div class="mini-title">📍 Bloque actual — Día ${dayNum} de 3</div><div style="font-size:15px;font-weight:900;margin-bottom:5px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'}</div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:12px">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">🍲 Mediodía</div><div class="block-foods">${(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join('')}${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''}</div><div class="mini-title" style="margin-top:12px">🍎 Fruta de tarde</div><div class="block-foods">${fruit?`<span class="block-food-tag ${b.newFood&&fruit.name===b.newFood.name?'block-food-new':''}">${b.newFood&&fruit.name===b.newFood.name?'✨ ':''}${escapeHtml(fruit.name)}</span>`:'<span class="badge b-gray">Sin fruta segura</span>'}</div>${b.newFood?`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}" style="margin-top:12px;margin-bottom:0">Alimento nuevo: <strong>${escapeHtml(b.newFood.name)}</strong></div>`:''}<button class="btn btn-sm btn-danger" style="margin-top:12px;width:100%" onclick="openReactionForBlock(${b.id})">Registrar reacción</button></div>`;}
-function foodTagsForBlock(b){const lunch=(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join(''); const nf=b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''; const fruits=getDailyFruits(b).map((f,i)=>`<span class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}">D${i+1}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}</span>`).join(''); return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}`;}
+function blockManualSummary(b){
+  const rows=[];
+  dateRangeDays(b.startDate,b.endDate).forEach((ds,idx)=>{
+    const ov=getDayOverride(ds);
+    if(!ov||(!ov.deleted&&!ov.noEat&&!ov.fruitName&&!(ov.extraFoods||[]).length&&!(ov.removedNames||[]).length))return;
+    const bits=[];
+    if(ov.noEat||ov.deleted)bits.push('sin plan');
+    if(ov.fruitName)bits.push('fruta: '+ov.fruitName);
+    if((ov.extraFoods||[]).length)bits.push('+ '+(ov.extraFoods||[]).map(f=>f.name).join(', '));
+    if((ov.removedNames||[]).length)bits.push('− '+(ov.removedNames||[]).join(', '));
+    rows.push(`<span class="block-food-tag b-tag">D${idx+1} editado: ${escapeHtml(bits.join(' · '))}</span>`);
+  });
+  if(!rows.length && !b.manualNewFood)return '';
+  const lock=b.manualNewFood&&b.newFood?`<span class="block-food-tag b-tag">🔒 nuevo manual: ${escapeHtml(b.newFood.name)}</span>`:'';
+  return `<span style="flex-basis:100%;height:0"></span>${lock}${rows.join('')}`;
+}
+function foodTagsForBlock(b){const lunch=(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join(''); const nf=b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''; const fruits=getDailyFruits(b).map((f,i)=>`<span class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}">D${i+1}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}</span>`).join(''); return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}${blockManualSummary(b)}`;}
 function renderPlan(){checkBlockCompletions(); const el=document.getElementById('plan-content'); if(!S.blocks.length){el.innerHTML=`<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:900;margin-bottom:6px">Sin plan generado</div><div style="font-size:13px;color:var(--text3);margin-bottom:8px">${ageText()}</div><button class="btn btn-primary btn-full" onclick="openModal('modal-setup-plan')">Generar plan mensual</button></div>${renderShoppingList()}`;return;} const tod=today(); const cur=S.blocks.find(b=>b.startDate<=tod&&b.endDate>=tod); let html=cur?renderCurrentBlockCard(cur):''; html+=renderMilestone(); html+=renderShoppingList(); html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div class="section-title" style="margin:0">Todos los bloques</div><button class="btn btn-sm btn-primary" onclick="openModal('modal-setup-plan')">Generar / rehacer mes</button></div>`; S.blocks.forEach(b=>{const isPast=b.endDate<tod,isCur=b.startDate<=tod&&b.endDate>=tod; html+=`<div class="block-card ${b.type==='allergen'?'block-allergen':'block-normal'}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.75':''}"><div class="block-title">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'} ${isPast?'<span class="badge b-gray">Completado</span>':isCur?'<span class="badge b-safe">Actual</span>':''}</div><div class="block-dates">📅 ${formatDateRange(b.startDate,b.endDate)}</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${escapeHtml(b.reactionFood)}</span></div>`:''}</div>`;}); el.innerHTML=html;}
 function renderMilestone(){return pendingAllergens().length?'':`<div class="card"><div class="card-title">🏁 Alérgenos completados</div><div class="info-box info-green">Has pasado por toda la lista de alérgenos pendientes. A partir de ahora el plan continuará con bloques normales.</div></div>`;}
 function openBlockDetail(id){
@@ -575,7 +591,6 @@ function openBlockDetail(id){
   <div class="divider"></div><div class="section-title">✏️ Editar bloque</div>
   <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
   <div class="field"><div class="field-label">Cambiar alimento nuevo</div><select id="edit-block-new"><option value="">Selecciona...</option>${candidates.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="changeBlockNewFood(${b.id})">Guardar alimento nuevo</button>
-  <button class="btn btn-full" onclick="changeBlockType(${b.id}, '${b.type==='allergen'?'normal':'allergen'}')">Cambiar a bloque ${b.type==='allergen'?'normal':'alérgeno'}</button>
   <button class="btn btn-full" onclick="regenerateFromDateManual('${b.startDate}')">Regenerar desde este bloque</button>
   <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
   <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
@@ -678,10 +693,62 @@ function markNoEatDay(ds){if(!confirm('¿Marcar este día como sin plan / no com
 function restoreDay(ds){const ov=getDayOverride(ds); delete ov.noEat; delete ov.deleted; setDayOverride(ds,ov); save(); openDayModal(ds); renderCalendario(); renderPlan();}
 function fillBlockAtDate(ds){if(findBlockForDate(ds)){alert('Ese día ya pertenece a un bloque.');return;} const end=addDays(ds,2); const snap=snapshotFoodState(); let nb=[]; try{virtuallyPromoteIntroducedBefore(ds); nb=generateBlocks(ds,1,end);}catch(e){console.error(e); alert('No se pudo generar bloque: '+(e.message||e));}finally{restoreFoodState(snap);} if(!nb.length){alert('No se pudo generar bloque.');return;} S.blocks=[...S.blocks,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-day'); renderCalendario(); renderPlan();}
 function deleteBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; if(!confirm('¿Eliminar este bloque? Quedará un hueco en el calendario.'))return; S.blocks=S.blocks.filter(x=>x.id!==id); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
-function remakeBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; if(!confirm('¿Rehacer solo este bloque?'))return; const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[]; try{S.blocks=S.blocks.filter(x=>x.id!==id); virtuallyPromoteIntroducedBefore(b.startDate); nb=generateBlocks(b.startDate,1,b.endDate);}catch(e){console.error(e); alert('No se pudo rehacer el bloque: '+(e.message||e)); S.blocks=old;}finally{restoreFoodState(snap);} if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}}
-function changeBlockNewFood(id){const b=S.blocks.find(x=>x.id===id); const name=document.getElementById('edit-block-new')?.value||''; if(!b||!name){alert('Selecciona un alimento');return;} const f=allFoods().find(x=>x.name===name); if(!f)return; b.newFood=enrichFood(f); b.dailyFruits=getDailyFruits(b,S.blocks.filter(x=>x.id!==id)); save(); openBlockDetail(id); renderPlan(); renderCalendario();}
+function remakeBlock(id){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  const msg=b.manualNewFood&&b.newFood?'¿Rehacer este bloque manteniendo el alimento nuevo elegido manualmente?':'¿Rehacer solo este bloque?';
+  if(!confirm(msg))return;
+  const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[];
+  try{
+    const base=S.blocks.filter(x=>x.id!==id);
+    S.blocks=base;
+    virtuallyPromoteIntroducedBefore(b.startDate);
+    const context=[...S.blocks,b]; // incluye el bloque anterior como memoria para evitar repetir exactamente lo mismo
+    if(b.manualNewFood&&b.newFood){
+      const preserved=enrichFood(b.newFood);
+      const lunch=buildLunchFromSafe(context,preserved);
+      if(!lunch)throw new Error('No hay suficientes alimentos seguros para rehacer el bloque manteniendo el alimento nuevo.');
+      const rebuilt={...b, foods:lunch, newFood:preserved, completed:false, reactionFood:null, manualNewFood:true};
+      rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
+      nb=[rebuilt];
+    }else{
+      const used=getUsedNewFoodsAll();
+      if(b.newFood)used.add(b.newFood.name);
+      const rec=buildRecipe(b.type,context,used)||buildSafeOnlyRecipe(context);
+      if(!rec)throw new Error('No se pudo construir una receta alternativa.');
+      const rebuilt={...b, foods:rec.foods, newFood:rec.newFood||null, completed:false, reactionFood:null, manualNewFood:false};
+      rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
+      nb=[rebuilt];
+    }
+  }catch(e){console.error(e); alert('No se pudo rehacer el bloque: '+(e.message||e)); S.blocks=old; nb=[];}
+  finally{restoreFoodState(snap);}
+  if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
+}
+function changeBlockNewFood(id){
+  const b=S.blocks.find(x=>x.id===id); const name=document.getElementById('edit-block-new')?.value||'';
+  if(!b||!name){alert('Selecciona un alimento');return;}
+  const f=allFoods().find(x=>x.name===name); if(!f)return;
+  const preserved=enrichFood(f);
+  const context=S.blocks.filter(x=>x.id!==id);
+  const lunch=buildLunchFromSafe([...context,b],preserved);
+  if(lunch) b.foods=lunch;
+  b.newFood=preserved;
+  b.manualNewFood=true;
+  b.completed=false;
+  b.reactionFood=null;
+  b.dailyFruits=getDailyFruits(b,context);
+  dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]);
+  save(); openBlockDetail(id); renderPlan(); renderCalendario();
+}
 function changeBlockType(id,type){const b=S.blocks.find(x=>x.id===id); if(!b)return; const old=deepClone(S.blocks); const snap=snapshotFoodState(); let rec=null; try{S.blocks=S.blocks.filter(x=>x.id!==id); virtuallyPromoteIntroducedBefore(b.startDate); rec=buildRecipe(type,S.blocks,getUsedNewFoodsAll())||buildSafeOnlyRecipe(S.blocks);}catch(e){console.error(e);}finally{restoreFoodState(snap); S.blocks=old;} if(!rec){alert('No se pudo cambiar el tipo de bloque.');return;} b.type=type; b.foods=rec.foods; b.newFood=rec.newFood; b.dailyFruits=getDailyFruits(b,S.blocks.filter(x=>x.id!==id)); save(); openBlockDetail(id); renderPlan(); renderCalendario();}
-function regenerateFromDateManual(ds){if(!confirm('¿Regenerar el plan desde esta fecha conservando todo lo anterior?'))return; const future=S.blocks.filter(b=>b.endDate>=ds); const horizon=future.reduce((max,b)=>!max||b.endDate>max?b.endDate:max,''); const past=S.blocks.filter(b=>b.endDate<ds); const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[]; try{S.blocks=past; virtuallyPromoteIntroducedBefore(ds); const count=Math.ceil((daysBetween(ds,horizon||addDays(ds,29))+1)/3); nb=generateBlocks(ds,count,horizon||addDays(ds,29));}catch(e){console.error(e); alert('No se pudo regenerar: '+(e.message||e)); S.blocks=old;}finally{restoreFoodState(snap);} if(nb.length){S.blocks=[...past,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); Object.keys(S.dayOverrides||{}).forEach(k=>{if(k>=ds)delete S.dayOverrides[k];}); save(); closeModal('modal-day'); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}}
+function regenerateFromDateManual(ds){
+  if(!confirm('¿Regenerar el plan desde esta fecha conservando todo lo anterior?'))return;
+  const future=S.blocks.filter(b=>b.endDate>=ds || (b.startDate<=ds&&b.endDate>=ds));
+  const horizon=future.reduce((max,b)=>!max||b.endDate>max?b.endDate:max,'')||addDays(ds,29);
+  const past=S.blocks.filter(b=>b.endDate<ds);
+  const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[];
+  try{S.blocks=past; virtuallyPromoteIntroducedBefore(ds); const count=Math.max(1,Math.ceil((daysBetween(ds,horizon)+1)/3)); nb=generateBlocks(ds,count,horizon);}catch(e){console.error(e); alert('No se pudo regenerar: '+(e.message||e)); S.blocks=old; nb=[];}finally{restoreFoodState(snap);}
+  if(nb.length){S.blocks=[...past,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); Object.keys(S.dayOverrides||{}).forEach(k=>{if(k>=ds)delete S.dayOverrides[k];}); save(); closeModal('modal-day'); closeModal('modal-block-detail'); renderCalendario(); renderPlan(); alert('Plan regenerado desde '+formatShortDate(ds)+'.');}
+}
 
 Object.assign(window, {
   activateDairy,
