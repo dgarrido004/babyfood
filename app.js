@@ -1,6 +1,6 @@
-console.log('BabyFood editable v2 cargada');
+console.log('BabyFood editable v3 cargada');
 'use strict';
-const STORAGE_KEY='bf_editable_v1';
+const STORAGE_KEY='bf_editable_v3';
 const OLD_KEYS=[];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
@@ -497,11 +497,11 @@ function generatePlan(){
   const selected=document.getElementById('plan-start-date').value;
   if(!selected){alert('Elige un mes');return;}
   const mb=monthBounds(selected);
-  const start=mb.start;
-  const existing=S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end));
+  const start=selected;
+  const existing=S.blocks.filter(b=>!(b.endDate<start||b.startDate>mb.end));
   const oldBlocks=deepClone(S.blocks);
-  if(existing.length){if(!confirm('Este mes ya tiene plan. ¿Quieres rehacer solo este mes?'))return; S.blocks=S.blocks.filter(b=>b.endDate<mb.start||b.startDate>mb.end);}
-  const count=Math.ceil((daysBetween(mb.start,mb.end)+1)/3);
+  if(existing.length){if(!confirm('Ya hay plan desde esa fecha hasta final de mes. ¿Quieres rehacer solo ese tramo?'))return; S.blocks=S.blocks.filter(b=>b.endDate<start||b.startDate>mb.end);}
+  const count=Math.ceil((daysBetween(start,mb.end)+1)/3);
   const foodSnap=snapshotFoodState();
   let newBlocks=[];
   try{
@@ -574,25 +574,37 @@ function blockManualSummary(b){
     if(ov.fruitName)bits.push('fruta: '+ov.fruitName);
     if((ov.extraFoods||[]).length)bits.push('+ '+(ov.extraFoods||[]).map(f=>f.name).join(', '));
     if((ov.removedNames||[]).length)bits.push('− '+(ov.removedNames||[]).join(', '));
-    rows.push(`<span class="block-food-tag b-tag">D${idx+1} editado: ${escapeHtml(bits.join(' · '))}</span>`);
+    rows.push(`<span class="block-food-tag b-tag">Día ${parseDate(ds).getDate()} editado: ${escapeHtml(bits.join(' · '))}</span>`);
   });
   if(!rows.length && !b.manualNewFood)return '';
   const lock=b.manualNewFood&&b.newFood?`<span class="block-food-tag b-tag">🔒 nuevo manual: ${escapeHtml(b.newFood.name)}</span>`:'';
   return `<span style="flex-basis:100%;height:0"></span>${lock}${rows.join('')}`;
 }
-function foodTagsForBlock(b){const lunch=(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join(''); const nf=b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''; const fruits=getDailyFruits(b).map((f,i)=>`<span class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}">D${i+1}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}</span>`).join(''); return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}${blockManualSummary(b)}`;}
+function blockFoodTagHtml(b,f,role,idx,extraClass=''){
+  if(!f)return '';
+  const label=role==='fruit'?`Día ${parseDate(addDays(b.startDate,idx)).getDate()}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}`:`${role==='new'?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
+  return `<button type="button" class="block-food-tag ${extraClass}" style="border:0;cursor:pointer" onclick="openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>`;
+}
+function foodTagsForBlock(b){
+  const lunch=(b.foods||[]).filter(Boolean).map((f,i)=>blockFoodTagHtml(b,f,'food',i)).join('');
+  const nf=b.newFood&&b.newFood.cat!=='fruta'?blockFoodTagHtml(b,b.newFood,'new',0,'block-food-new'):'';
+  const fruits=getDailyFruits(b).map((f,i)=>blockFoodTagHtml(b,f,'fruit',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('');
+  return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}${blockManualSummary(b)}`;
+}
 function renderPlan(){checkBlockCompletions(); const el=document.getElementById('plan-content'); if(!S.blocks.length){el.innerHTML=`<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:900;margin-bottom:6px">Sin plan generado</div><div style="font-size:13px;color:var(--text3);margin-bottom:8px">${ageText()}</div><button class="btn btn-primary btn-full" onclick="openModal('modal-setup-plan')">Generar plan mensual</button></div>${renderShoppingList()}`;return;} const tod=today(); const cur=S.blocks.find(b=>b.startDate<=tod&&b.endDate>=tod); let html=cur?renderCurrentBlockCard(cur):''; html+=renderMilestone(); html+=renderShoppingList(); html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div class="section-title" style="margin:0">Todos los bloques</div><button class="btn btn-sm btn-primary" onclick="openModal('modal-setup-plan')">Generar / rehacer mes</button></div>`; S.blocks.forEach(b=>{const isPast=b.endDate<tod,isCur=b.startDate<=tod&&b.endDate>=tod; html+=`<div class="block-card ${b.type==='allergen'?'block-allergen':'block-normal'}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.75':''}"><div class="block-title">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'} ${isPast?'<span class="badge b-gray">Completado</span>':isCur?'<span class="badge b-safe">Actual</span>':''}</div><div class="block-dates">📅 ${formatDateRange(b.startDate,b.endDate)}</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${escapeHtml(b.reactionFood)}</span></div>`:''}</div>`;}); el.innerHTML=html;}
 function renderMilestone(){return pendingAllergens().length?'':`<div class="card"><div class="card-title">🏁 Alérgenos completados</div><div class="info-box info-green">Has pasado por toda la lista de alérgenos pendientes. A partir de ahora el plan continuará con bloques normales.</div></div>`;}
 function openBlockDetail(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
   document.getElementById('block-detail-title').textContent=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal';
-  const candidates=b.type==='allergen'?orderAllergens(pendingAllergens()):normalPendingFoods();
-  document.getElementById('block-detail-content').innerHTML=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">Alimentos del bloque</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
+  document.getElementById('block-detail-content').innerHTML=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div>
+  <div class="mini-title">Alimentos del bloque</div>
+  <div class="info-box info-blue" style="font-size:11px">Toca cualquier alimento para sustituirlo por otro compatible.</div>
+  <div class="block-foods">${foodTagsForBlock(b)}</div>
+  <div id="block-swap-panel"></div>
+  ${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
   <div class="divider"></div><div class="section-title">✏️ Editar bloque</div>
-  <div class="info-box info-blue">Pulsa un alimento para sustituirlo manualmente dentro del bloque.</div>
-  <div class="block-foods">${[...(b.foods||[]),...(b.newFood?[b.newFood]:[])].map(f=>`<button class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}" onclick="openSwapFood(${b.id},'${escapeAttr(f.name)}')">${escapeHtml(f.name)}</button>`).join('')}</div>
   <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
-  <button class="btn btn-full" onclick="regenerateFromDateManual('${b.startDate}')">Regenerar desde este bloque</button>
+  <button class="btn btn-full btn-primary" onclick="saveManualBlock(${b.id})">💾 Guardar bloque</button>
   <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
   <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
   openModal('modal-block-detail');
@@ -692,23 +704,65 @@ function addFoodToDay(ds){const name=document.getElementById('edit-day-add')?.va
 function removeFoodFromDay(ds){const name=document.getElementById('edit-day-remove')?.value||''; if(!name){alert('Selecciona un alimento');return;} const ov=getDayOverride(ds); ov.removedNames=[...new Set([...(ov.removedNames||[]),name])]; ov.extraFoods=(ov.extraFoods||[]).filter(f=>f.name!==name); setDayOverride(ds,ov); save(); openDayModal(ds); renderPlan(); renderCalendario();}
 function markNoEatDay(ds){if(!confirm('¿Marcar este día como sin plan / no comió?'))return; const ov=getDayOverride(ds); ov.noEat=true; ov.deleted=true; setDayOverride(ds,ov); save(); closeModal('modal-day'); renderCalendario(); renderPlan();}
 function restoreDay(ds){const ov=getDayOverride(ds); delete ov.noEat; delete ov.deleted; setDayOverride(ds,ov); save(); openDayModal(ds); renderCalendario(); renderPlan();}
-function fillBlockAtDate(ds){if(findBlockForDate(ds)){alert('Ese día ya pertenece a un bloque.');return;} const end=addDays(ds,2); const snap=snapshotFoodState(); let nb=[]; try{virtuallyPromoteIntroducedBefore(ds); nb=generateBlocks(ds,1,end);}catch(e){console.error(e); alert('No se pudo generar bloque: '+(e.message||e));}finally{restoreFoodState(snap);} if(!nb.length){alert('No se pudo generar bloque.');return;} S.blocks=[...S.blocks,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-day'); renderCalendario(); renderPlan();}
+function findGapAroundDate(ds){
+  let start=ds,end=ds;
+  while(!findBlockForDate(addDays(start,-1))) {
+    const prev=addDays(start,-1);
+    const sameMonth=parseDate(prev).getMonth()===parseDate(ds).getMonth()&&parseDate(prev).getFullYear()===parseDate(ds).getFullYear();
+    if(!sameMonth)break; start=prev;
+  }
+  while(!findBlockForDate(addDays(end,1))) {
+    const next=addDays(end,1);
+    const sameMonth=parseDate(next).getMonth()===parseDate(ds).getMonth()&&parseDate(next).getFullYear()===parseDate(ds).getFullYear();
+    if(!sameMonth)break; end=next;
+  }
+  return {start,end,days:daysBetween(start,end)+1};
+}
+function fillBlockAtDate(ds){
+  if(findBlockForDate(ds)){alert('Ese día ya pertenece a un bloque.');return;}
+  const gap=findGapAroundDate(ds);
+  if(gap.days<3){alert('No hay 3 días libres consecutivos para generar un bloque completo.');return;}
+  const blocksToMake=Math.floor(gap.days/3);
+  const snap=snapshotFoodState(); let nb=[];
+  try{virtuallyPromoteIntroducedBefore(gap.start); nb=generateBlocks(gap.start,blocksToMake,addDays(gap.start,blocksToMake*3-1));}
+  catch(e){console.error(e); alert('No se pudo generar bloque: '+(e.message||e));}
+  finally{restoreFoodState(snap);}
+  if(!nb.length){alert('No se pudo generar bloque.');return;}
+  S.blocks=[...S.blocks,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-day'); renderCalendario(); renderPlan();
+}
 function deleteBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; if(!confirm('¿Eliminar este bloque? Quedará un hueco en el calendario.'))return; S.blocks=S.blocks.filter(x=>x.id!==id); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
+function collectManualFixedFoods(b){
+  const fixed=[];
+  (b.manualFixedFoods||[]).forEach(n=>{const f=(b.foods||[]).find(x=>x&&x.name===n)||S.safeFoods.find(x=>x.name===n); if(f)fixed.push(enrichFood(f));});
+  return dedupe(fixed);
+}
+function applyFixedFoodsToLunch(lunch,fixed){
+  lunch=dedupe(lunch||[]); fixed=dedupe(fixed||[]);
+  fixed.forEach(ff=>{
+    if(lunch.some(x=>x.name===ff.name))return;
+    const idx=lunch.findIndex(x=>x&&x.cat===ff.cat&&!fixed.some(k=>k.name===x.name));
+    if(idx>=0)lunch[idx]=ff;
+    else if(lunch.length<3)lunch.push(ff);
+  });
+  return dedupe(lunch).slice(0,3);
+}
 function remakeBlock(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
-  const msg=b.manualNewFood&&b.newFood?'¿Rehacer este bloque manteniendo el alimento nuevo elegido manualmente?':'¿Rehacer solo este bloque?';
-  if(!confirm(msg))return;
   const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[];
   try{
+    b.remakeNonce=(b.remakeNonce||0)+1;
     const base=S.blocks.filter(x=>x.id!==id);
     S.blocks=base;
     virtuallyPromoteIntroducedBefore(b.startDate);
-    const context=[...S.blocks,b]; // incluye el bloque anterior como memoria para evitar repetir exactamente lo mismo
+    const fakeOld={...b,id:Date.now()+Math.random(),startDate:addDays(b.startDate,-3),endDate:addDays(b.startDate,-1)};
+    const context=[...S.blocks,fakeOld];
+    const fixed=collectManualFixedFoods(b);
     if(b.manualNewFood&&b.newFood){
       const preserved=enrichFood(b.newFood);
-      const lunch=buildLunchFromSafe(context,preserved);
+      let lunch=buildLunchFromSafe(context,preserved);
       if(!lunch)throw new Error('No hay suficientes alimentos seguros para rehacer el bloque manteniendo el alimento nuevo.');
-      const rebuilt={...b, foods:lunch, newFood:preserved, completed:false, reactionFood:null, manualNewFood:true};
+      lunch=applyFixedFoodsToLunch(lunch,fixed);
+      const rebuilt={...b, foods:lunch, newFood:preserved, completed:false, reactionFood:null, manualNewFood:true, manualFixedFoods:fixed.map(f=>f.name), manualSaved:false};
       rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
       nb=[rebuilt];
     }else{
@@ -716,13 +770,61 @@ function remakeBlock(id){
       if(b.newFood)used.add(b.newFood.name);
       const rec=buildRecipe(b.type,context,used)||buildSafeOnlyRecipe(context);
       if(!rec)throw new Error('No se pudo construir una receta alternativa.');
-      const rebuilt={...b, foods:rec.foods, newFood:rec.newFood||null, completed:false, reactionFood:null, manualNewFood:false};
+      let lunch=applyFixedFoodsToLunch(rec.foods,fixed);
+      const rebuilt={...b, foods:lunch, newFood:rec.newFood||null, completed:false, reactionFood:null, manualNewFood:false, manualFixedFoods:fixed.map(f=>f.name), manualSaved:false};
       rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
       nb=[rebuilt];
     }
   }catch(e){console.error(e); alert('No se pudo rehacer el bloque: '+(e.message||e)); S.blocks=old; nb=[];}
   finally{restoreFoodState(snap);}
-  if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
+  if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); renderCalendario(); renderPlan(); openBlockDetail(id);}
+}
+function blockSwapCandidates(b,role,idx){
+  if(role==='new'){
+    const current=b.newFood;
+    const pool=b.type==='allergen'?orderAllergens(pendingAllergens()):normalPendingFoods();
+    return dedupe(pool).filter(f=>f&&(!current||f.cat===current.cat)&&(!current||f.name!==current.name));
+  }
+  if(role==='fruit'){
+    const current=fruitForDate(b,addDays(b.startDate,idx));
+    return safeFruits().filter(f=>!current||f.name!==current.name);
+  }
+  const current=(b.foods||[])[idx];
+  return S.safeFoods.filter(f=>f&&current&&f.cat===current.cat&&f.name!==current.name);
+}
+function openBlockFoodSwap(id,role,idx){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  const current=role==='new'?b.newFood:(role==='fruit'?fruitForDate(b,addDays(b.startDate,idx)):(b.foods||[])[idx]);
+  const candidates=blockSwapCandidates(b,role,idx);
+  const panel=document.getElementById('block-swap-panel');
+  if(!panel)return;
+  panel.innerHTML=`<div class="divider"></div><div class="field"><div class="field-label">Sustituir ${escapeHtml(current?.name||'alimento')}</div><select id="block-swap-select"><option value="">Selecciona...</option>${candidates.map(f=>`<option value="${escapeAttr(f.name)}">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full btn-primary" onclick="applyBlockFoodSwap(${id},'${role}',${idx})">Cambiar alimento</button>`;
+}
+function applyBlockFoodSwap(id,role,idx){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  const name=document.getElementById('block-swap-select')?.value||'';
+  if(!name){alert('Selecciona un alimento');return;}
+  const candidates=blockSwapCandidates(b,role,idx);
+  const f=candidates.find(x=>x.name===name);
+  if(!f){alert('Alimento no compatible.');return;}
+  if(role==='new'){
+    b.newFood=enrichFood(f); b.manualNewFood=true;
+  }else if(role==='fruit'){
+    b.dailyFruits=Array.isArray(b.dailyFruits)?b.dailyFruits:getDailyFruits(b);
+    b.dailyFruits[idx]=enrichFood(f);
+  }else{
+    b.foods=b.foods||[]; b.foods[idx]=enrichFood(f);
+    b.manualFixedFoods=[...new Set([...(b.manualFixedFoods||[]),f.name])];
+  }
+  b.manualSaved=false;
+  dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]);
+  save(); renderPlan(); renderCalendario(); openBlockDetail(id);
+}
+function saveManualBlock(id){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  b.manualSaved=true;
+  b.manualFixedFoods=dedupe([...(b.manualFixedFoods||[]).map(n=>({name:n})),...(b.foods||[]).filter(f=>f&&f.name&&b.manualFixedFoods&&b.manualFixedFoods.includes(f.name))]).map(f=>f.name);
+  save(); renderPlan(); renderCalendario(); alert('Bloque guardado y vinculado al calendario.'); openBlockDetail(id);
 }
 function changeBlockNewFood(id){
   const b=S.blocks.find(x=>x.id===id); const name=document.getElementById('edit-block-new')?.value||'';
@@ -768,7 +870,7 @@ Object.assign(window, {
   generateDateReport,
   generatePlan,
   rebuildFutureAfterReaction,
-  saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
+  saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
   importData,
   markReactionAllergen,
   markReactionFromAny,
@@ -832,27 +934,3 @@ function cleanupOldServiceWorkers(){
   }catch(e){console.warn('No se pudo limpiar caché/SW antiguo', e);}
 }
 window.addEventListener('load', cleanupOldServiceWorkers);
-
-function openSwapFood(blockId,foodName){
- const b=S.blocks.find(x=>x.id===blockId); if(!b)return;
- const current=[...(b.foods||[]),...(b.newFood?[b.newFood]:[])].find(f=>f.name===foodName);
- if(!current)return;
- const pool=allFoods().filter(f=>f.cat===current.cat&&f.name!==foodName);
- document.getElementById('block-detail-title').textContent='🔄 Cambiar alimento';
- document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-blue">Sustituir <b>${escapeHtml(foodName)}</b></div><select id="swap-food-select">${pool.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select><button class="btn btn-full btn-primary" style="margin-top:12px" onclick="confirmSwapFood(${blockId},'${escapeAttr(foodName)}')">Guardar cambio</button>`;
- openModal('modal-block-detail');
-}
-function confirmSwapFood(blockId,oldName){
- const b=S.blocks.find(x=>x.id===blockId); if(!b)return;
- const newName=document.getElementById('swap-food-select').value;
- const nf=allFoods().find(f=>f.name===newName);
- if(!nf)return;
- b.manualFoods=b.manualFoods||{};
- b.manualFoods[oldName]=nf;
- if(b.newFood&&b.newFood.name===oldName)b.newFood=nf;
- b.foods=(b.foods||[]).map(f=>f.name===oldName?nf:f);
- save();
- closeModal('modal-block-detail');
- renderPlan();
- renderCalendario();
-}
