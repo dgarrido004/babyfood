@@ -48,3 +48,9 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .block-swap-inline{max-height:190px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;pointer-events:auto;z-index:10000;}
 .block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0;}
 .block-swap-option{min-height:38px;touch-action:manipulation;}
+
+
+/* Editable v12: popover compacto con 5 visibles, pero carga todas las opciones compatibles */
+.block-swap-inline{max-height:198px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;pointer-events:auto;z-index:10000;}
+.block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0;}
+.block-swap-option{min-height:38px;touch-action:manipulation;}

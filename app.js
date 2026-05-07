@@ -1,4 +1,4 @@
-console.log('BabyFood editable v11 cargada');
+console.log('BabyFood editable v12 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v10';
 const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
@@ -815,8 +815,10 @@ function blockSwapCandidates(b,role,idx){
 
   let pool=[];
   if(sourcePool==='pendingFoods'){
-    if((role==='new'||role==='fruit') && b.type==='allergen') pool=orderAllergens(pendingAllergens());
-    else pool=normalPendingFoods();
+    // En edición manual, un alimento nuevo debe sustituirse por cualquier alimento de pendientes
+    // de la misma categoría. No limitamos por alérgeno/no alérgeno aquí: la categoría y la lista
+    // de origen son la regla visual y funcional que pidió Patricia.
+    pool=S.pendingFoods||[];
   }else if(sourcePool==='dairyFoods'){
     pool=S.dairyFoods||[];
   }else{
