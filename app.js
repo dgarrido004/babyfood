@@ -1,4 +1,4 @@
-console.log('BabyFood editable v8 cargada');
+console.log('BabyFood editable v9 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v8';
 const OLD_KEYS=['bf_editable_v6','bf_editable_v5','bf_editable_v3'];
@@ -183,9 +183,9 @@ function addReactionRecord(food,source='manual',date=today()){food=enrichFood(fo
 function resolveReaction(n){let changed=false; (S.reactionHistory||[]).forEach(r=>{if(r.name===n&&r.status==='active'){r.status='resolved'; r.resolvedDate=today(); changed=true;}}); if(isReaction(n)){S.reactions=S.reactions.filter(r=>r.name!==n); changed=true;} return changed;}
 function showReactionInfo(n){const r=activeReactionInfo(n) || (S.reactionHistory||[]).slice().reverse().find(x=>x.name===n); if(!r){alert('No hay reacción registrada para este alimento.');return;} document.getElementById('block-detail-title').textContent='🚫 Reacción registrada'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red"><b>${escapeHtml(r.name)}</b></div><div style="font-size:13px;line-height:1.7;color:var(--text2)"><b>Fecha:</b> ${escapeHtml(formatShortDate(r.date))}<br><b>Estado:</b> ${r.status==='active'?'Activa':'Resuelta'}${r.resolvedDate?`<br><b>Resuelta:</b> ${escapeHtml(formatShortDate(r.resolvedDate))}`:''}</div>`; openModal('modal-block-detail');}
 function openReactionHistory(){const rows=(S.reactionHistory||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))); document.getElementById('block-detail-title').textContent='📜 Historial de reacciones'; document.getElementById('block-detail-content').innerHTML=rows.length?rows.map(r=>`<div class="food-row"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge ${r.status==='active'?'b-reaction':'b-gray'}">${r.status==='active'?'Activa':'Resuelta'}</span></div><div class="food-meta">${escapeHtml(formatShortDate(r.date))}${r.resolvedDate?' · resuelta '+escapeHtml(formatShortDate(r.resolvedDate)):''}</div></div></div>`).join(''):'<div class="empty">Sin historial de reacciones</div>'; openModal('modal-block-detail');}
-function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
+function showScreen(name){BLOCK_SWAP=null;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
 function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); const el=document.getElementById(id); if(!el)return; el.classList.add('open'); document.body.style.overflow='hidden'; if(!history.state||history.state.modal!==id){try{history.pushState({modal:id},'',location.href);}catch(e){}}}
-function closeModal(id){const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
+function closeModal(id){BLOCK_SWAP=null;const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
 window.addEventListener('popstate',()=>{document.querySelectorAll('.modal-overlay.open').forEach(el=>closeModal(el.id));});
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
@@ -787,18 +787,37 @@ function remakeBlock(id){
   finally{restoreFoodState(snap);}
   if(nb.length){const generatedNames=dedupe([...(nb[0].foods||[]),...(nb[0].newFood?[nb[0].newFood]:[]),...(nb[0].dailyFruits||[])]).map(f=>f.name); nb[0].remakeHistory=[...((b.remakeHistory||[]).slice(-8)),generatedNames]; S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); renderCalendario(); renderPlan(); openBlockDetail(id);}
 }
+function foodPoolNameByFood(food){
+  if(!food||!food.name)return null;
+  if(S.safeFoods.some(f=>f.name===food.name))return 'safeFoods';
+  if(S.pendingFoods.some(f=>f.name===food.name))return 'pendingFoods';
+  if(S.dairyFoods.some(f=>f.name===food.name))return 'dairyFoods';
+  return null;
+}
 function blockSwapCandidates(b,role,idx){
+  let current=null;
+  let sourcePool='safeFoods';
   if(role==='new'){
-    const current=b.newFood;
-    const pool=b.type==='allergen'?orderAllergens(pendingAllergens()):normalPendingFoods();
-    return dedupe(pool).filter(f=>f&&(!current||f.cat===current.cat)&&(!current||f.name!==current.name));
+    current=b.newFood;
+    sourcePool='pendingFoods';
+  }else if(role==='fruit'){
+    current=fruitForDate(b,addDays(b.startDate,idx));
+    // Si la fruta visible es el alimento nuevo, debe sustituirse por pendientes de fruta.
+    // Si es fruta normal del bloque, debe sustituirse por frutas seguras.
+    const isNewFruit=!!(current&&b.newFood&&current.name===b.newFood.name&&b.newFood.cat==='fruta');
+    sourcePool=isNewFruit?'pendingFoods':'safeFoods';
+  }else{
+    current=(b.foods||[])[idx];
+    sourcePool=foodPoolNameByFood(current)||'safeFoods';
   }
-  if(role==='fruit'){
-    const current=fruitForDate(b,addDays(b.startDate,idx));
-    return safeFruits().filter(f=>!current||f.name!==current.name);
-  }
-  const current=(b.foods||[])[idx];
-  return S.safeFoods.filter(f=>f&&current&&f.cat===current.cat&&f.name!==current.name);
+  if(!current)return [];
+  let pool=[];
+  if(sourcePool==='pendingFoods'){
+    if(role==='new'&&b.type==='allergen') pool=orderAllergens(pendingAllergens());
+    else pool=normalPendingFoods();
+  }else if(sourcePool==='dairyFoods') pool=S.dairyFoods||[];
+  else pool=S.safeFoods||[];
+  return dedupe(pool).filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name));
 }
 function openBlockFoodSwap(id,role,idx){
   BLOCK_SWAP=(BLOCK_SWAP&&BLOCK_SWAP.id===id&&BLOCK_SWAP.role===role&&BLOCK_SWAP.idx===idx)?null:{id,role,idx};

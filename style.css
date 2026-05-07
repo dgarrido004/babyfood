@@ -30,3 +30,9 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .block-swap-option:active{background:var(--accent-light)}
 .modal-sheet{overflow-y:auto;overflow-x:visible}
 .block-foods{overflow:visible}
+
+/* Editable v9: popover sin desplazar y scroll táctil real */
+.block-swap-inline{max-height:185px;overflow-y:scroll;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none;pointer-events:auto;z-index:10000}
+.block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0}
+.block-swap-option{min-height:36px;touch-action:manipulation}
+.modal-overlay:not(.open) .block-swap-inline{display:none}
