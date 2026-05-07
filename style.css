@@ -19,3 +19,14 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .block-title-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
 .block-title-line .modal-title{margin-bottom:0}
 .save-icon-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;padding:0;font-size:16px}
+
+
+/* Editable v8: selector flotante minimalista */
+.block-food-edit-wrap{position:relative;display:inline-flex;align-items:flex-start;overflow:visible;z-index:1}
+.block-food-edit-wrap:has(.block-swap-inline){z-index:80}
+.block-swap-inline{position:absolute;left:0;top:calc(100% + 4px);width:max-content;min-width:150px;max-width:260px;max-height:220px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;background:#fff;border:1px solid var(--border);border-radius:14px;padding:5px;box-shadow:0 10px 28px rgba(44,26,14,.16);z-index:9999;margin:0}
+.block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0}
+.block-swap-option{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 11px;border-radius:10px;font-size:13px;font-weight:800;color:var(--text);font-family:inherit;cursor:pointer;white-space:nowrap}
+.block-swap-option:active{background:var(--accent-light)}
+.modal-sheet{overflow-y:auto;overflow-x:visible}
+.block-foods{overflow:visible}

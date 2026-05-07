@@ -1,7 +1,7 @@
-console.log('BabyFood editable v6 cargada');
+console.log('BabyFood editable v8 cargada');
 'use strict';
-const STORAGE_KEY='bf_editable_v6';
-const OLD_KEYS=[];
+const STORAGE_KEY='bf_editable_v8';
+const OLD_KEYS=['bf_editable_v6','bf_editable_v5','bf_editable_v3'];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -585,12 +585,12 @@ function blockSwapInlineHtml(b,role,idx,current){
   if(!BLOCK_SWAP||BLOCK_SWAP.id!==b.id||BLOCK_SWAP.role!==role||BLOCK_SWAP.idx!==idx)return '';
   const candidates=blockSwapCandidates(b,role,idx);
   if(!candidates.length)return `<div class="block-swap-inline"><span class="food-meta">No hay sustitutos compatibles</span></div>`;
-  return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="applyBlockFoodSwap(${b.id},'${role}',${idx},${jsStr(f.name)})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
+  return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();applyBlockFoodSwap(${b.id},'${role}',${idx},${escapeAttr(jsStr(f.name))})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
 }
 function blockFoodTagHtml(b,f,role,idx,extraClass=''){
   if(!f)return '';
   const label=role==='fruit'?`Día ${parseDate(addDays(b.startDate,idx)).getDate()}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}`:`${role==='new'?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
-  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>${blockSwapInlineHtml(b,role,idx,f)}</span>`;
+  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="event.stopPropagation();openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>${blockSwapInlineHtml(b,role,idx,f)}</span>`;
 }
 function foodTagsForBlock(b){
   const lunch=(b.foods||[]).filter(Boolean).map((f,i)=>blockFoodTagHtml(b,f,'food',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('');
@@ -825,6 +825,13 @@ function applyBlockFoodSwap(id,role,idx,name){
   dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]);
   save(); renderPlan(); renderCalendario(); openBlockDetail(id);
 }
+
+function closeBlockSwapIfOpen(){
+  if(!BLOCK_SWAP)return;
+  const id=BLOCK_SWAP.id;
+  BLOCK_SWAP=null;
+  if(document.getElementById('modal-block-detail')?.classList.contains('open')) openBlockDetail(id);
+}
 function saveManualBlock(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
   b.manualSaved=true;
@@ -858,6 +865,14 @@ function regenerateFromDateManual(ds){
   if(nb.length){S.blocks=[...past,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); Object.keys(S.dayOverrides||{}).forEach(k=>{if(k>=ds)delete S.dayOverrides[k];}); save(); closeModal('modal-day'); closeModal('modal-block-detail'); renderCalendario(); renderPlan(); alert('Plan regenerado desde '+formatShortDate(ds)+'.');}
 }
 
+
+document.addEventListener('click',function(e){
+  if(!BLOCK_SWAP)return;
+  if(e.target.closest('.block-food-edit-wrap'))return;
+  if(e.target.closest('#modal-block-detail .modal-sheet')){
+    closeBlockSwapIfOpen();
+  }
+});
 Object.assign(window, {
   activateDairy,
   addAllergenToPool,
@@ -904,7 +919,8 @@ Object.assign(window, {
   setShoppingWeek,
   showScreen,
   skipBirthDateSetup,
-  toggleGuide
+  toggleGuide,
+  closeBlockSwapIfOpen
 });
 
 
