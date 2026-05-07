@@ -71,3 +71,7 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 .mini-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
 #modal-block-detail .modal-sheet > button[onclick="closeModal('modal-block-detail')"],#modal-day .modal-sheet > button[onclick="closeModal('modal-day')"]{display:none!important}
+
+/* Editable v15: calendario usa mismo popover compacto del bloque */
+#modal-day .block-swap-inline{max-height:198px;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;}
+#modal-day .block-swap-inline::-webkit-scrollbar{display:none;width:0;height:0;}
