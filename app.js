@@ -589,8 +589,9 @@ function openBlockDetail(id){
   const candidates=b.type==='allergen'?orderAllergens(pendingAllergens()):normalPendingFoods();
   document.getElementById('block-detail-content').innerHTML=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">Alimentos del bloque</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
   <div class="divider"></div><div class="section-title">✏️ Editar bloque</div>
+  <div class="info-box info-blue">Pulsa un alimento para sustituirlo manualmente dentro del bloque.</div>
+  <div class="block-foods">${[...(b.foods||[]),...(b.newFood?[b.newFood]:[])].map(f=>`<button class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}" onclick="openSwapFood(${b.id},'${escapeAttr(f.name)}')">${escapeHtml(f.name)}</button>`).join('')}</div>
   <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
-  <div class="field"><div class="field-label">Cambiar alimento nuevo</div><select id="edit-block-new"><option value="">Selecciona...</option>${candidates.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="changeBlockNewFood(${b.id})">Guardar alimento nuevo</button>
   <button class="btn btn-full" onclick="regenerateFromDateManual('${b.startDate}')">Regenerar desde este bloque</button>
   <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
   <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
@@ -831,3 +832,27 @@ function cleanupOldServiceWorkers(){
   }catch(e){console.warn('No se pudo limpiar caché/SW antiguo', e);}
 }
 window.addEventListener('load', cleanupOldServiceWorkers);
+
+function openSwapFood(blockId,foodName){
+ const b=S.blocks.find(x=>x.id===blockId); if(!b)return;
+ const current=[...(b.foods||[]),...(b.newFood?[b.newFood]:[])].find(f=>f.name===foodName);
+ if(!current)return;
+ const pool=allFoods().filter(f=>f.cat===current.cat&&f.name!==foodName);
+ document.getElementById('block-detail-title').textContent='🔄 Cambiar alimento';
+ document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-blue">Sustituir <b>${escapeHtml(foodName)}</b></div><select id="swap-food-select">${pool.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select><button class="btn btn-full btn-primary" style="margin-top:12px" onclick="confirmSwapFood(${blockId},'${escapeAttr(foodName)}')">Guardar cambio</button>`;
+ openModal('modal-block-detail');
+}
+function confirmSwapFood(blockId,oldName){
+ const b=S.blocks.find(x=>x.id===blockId); if(!b)return;
+ const newName=document.getElementById('swap-food-select').value;
+ const nf=allFoods().find(f=>f.name===newName);
+ if(!nf)return;
+ b.manualFoods=b.manualFoods||{};
+ b.manualFoods[oldName]=nf;
+ if(b.newFood&&b.newFood.name===oldName)b.newFood=nf;
+ b.foods=(b.foods||[]).map(f=>f.name===oldName?nf:f);
+ save();
+ closeModal('modal-block-detail');
+ renderPlan();
+ renderCalendario();
+}
