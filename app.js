@@ -1,4 +1,4 @@
-console.log('BabyFood editable v10 cargada');
+console.log('BabyFood editable v11 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v10';
 const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
