@@ -88,8 +88,13 @@ input[type=text],input[type=date],select,textarea{width:100%;border:1.5px solid 
 #modal-day .block-swap-inline::-webkit-scrollbar,#modal-day .day-add-popover::-webkit-scrollbar{display:none;width:0;height:0;}
 
 
-/* Editable v20: modal de reacción encima, notas e indicador de reacción */
-#modal-block-detail.open{z-index:360;}
-#modal-add-reaction.open{z-index:370;}
-.cal-cell.c-reaction{background:#FFD8D8!important;}
-#day-detail .card-title{margin-bottom:10px;}
+/* v22: glow suave para el día actual */
+.cal-cell.today{
+  border-color:var(--accent)!important;
+  border-width:2px!important;
+  box-shadow:
+    0 0 0 2px rgba(232,114,42,.18),
+    0 0 12px rgba(232,114,42,.22);
+  transform:scale(1.04);
+  z-index:2;
+}
