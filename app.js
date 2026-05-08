@@ -1,4 +1,4 @@
-console.log('BabyFood editable v17 cargada');
+console.log('BabyFood editable v18 cargada');
 'use strict';
 const STORAGE_KEY='bf_editable_v10';
 const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
@@ -137,7 +137,7 @@ function allFoods(){return dedupe([...S.safeFoods,...S.pendingFoods,...S.dairyFo
 function allSelectableFoods(){return dedupe([...S.safeFoods,...S.pendingFoods].filter(f=>!isReaction(f.name)));}
 function findBlockForDate(ds){return S.blocks.find(x=>x&&x.startDate<=ds&&x.endDate>=ds)||null;}
 function getDayOverride(ds){S.dayOverrides=S.dayOverrides||{}; return S.dayOverrides[ds]||{};}
-function setDayOverride(ds,ov){S.dayOverrides=S.dayOverrides||{}; const clean={...ov}; if(!clean.deleted&&!clean.noEat&&!clean.fruitName&&!(clean.extraFoods||[]).length&&!(clean.removedNames||[]).length){delete S.dayOverrides[ds];}else{S.dayOverrides[ds]=clean;}}
+function setDayOverride(ds,ov){S.dayOverrides=S.dayOverrides||{}; const clean={...ov}; if(!clean.deleted&&!clean.noEat&&!clean.fruitName&&!(clean.extraFoods||[]).length&&!(clean.removedNames||[]).length&&!clean.dayNewFoodName){delete S.dayOverrides[ds];}else{S.dayOverrides[ds]=clean;}}
 function isDayDeleted(ds){const ov=getDayOverride(ds); return !!(ov.deleted||ov.noEat);}
 function getFoodsForDate(b,ds){
   if(!b||isDayDeleted(ds))return [];
@@ -737,7 +737,7 @@ function addFoodToDayFromPicker(ds,name){
 }
 function dayFoodTagHtml(ds,b,f,role,idx,extraClass=''){
   if(!f)return '';
-  const isNew=!!(b&&b.newFood&&f.name===b.newFood.name);
+  const ov=getDayOverride(ds); const isNew=!!(b&&((b.newFood&&f.name===b.newFood.name)||(ov.dayNewFoodName&&f.name===ov.dayNewFoodName)));
   const label=role==='fruit'?`🍎 ${isNew?'✨ ':''}${escapeHtml(f.name)}`:`${isNew?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
   const canSwap=!!b;
   return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="event.stopPropagation();${canSwap?`openDayFoodSwap('${ds}','${role}',${idx})`:`openDayAddFood('${ds}')`}">${label}</button>${canSwap?daySwapInlineHtml(ds,b,role,idx,f):''}</span>`;
@@ -791,23 +791,67 @@ function closeDaySwapIfOpen(){
 }
 
 function saveDayManual(ds){ save(); renderCalendario(); renderPlan(); closeModal('modal-day'); }
+function pickDayAlternative(pool,current,used,counts,recent){
+  pool=dedupe(pool||[]).filter(f=>f&&f.name&&f.cat===current.cat&&f.name!==current.name&&!used.has(f.name)&&!isReaction(f.name));
+  if(!pool.length)return null;
+  const recentSet=recent||{};
+  return pool.map(f=>{
+    let score=100;
+    score-=(counts[f.name]||0)*5;
+    score-=(recentSet[f.name]||0)*12;
+    score+=Math.random()*35;
+    return {f,score};
+  }).sort((a,b)=>b.score-a.score)[0].f;
+}
 function randomizeDayFromHeader(ds){
   showMiniToast('Generar día aleatorio');
   const b=findBlockForDate(ds);
+  if(!b){alert('No hay bloque para randomizar este día.');return;}
   const ov=getDayOverride(ds);
-  const current=b?getFoodsForDate(b,ds):[];
-  const oldJ=GENERATION_JITTER;
-  GENERATION_JITTER=30;
-  let lunch=null;
-  try{
-    const context=S.blocks.filter(x=>!b||x.id!==b.id);
-    lunch=buildLunchFromSafe(context,null);
-  }catch(e){console.warn(e);} finally{GENERATION_JITTER=oldJ;}
-  if(!lunch||!lunch.length){alert('No se pudo generar una alternativa para este día.');return;}
-  ov.removedNames=[...new Set([...(ov.removedNames||[]),...current.map(f=>f.name)])];
-  ov.extraFoods=dedupe(lunch);
-  const fruit=pickBalanced(safeFruits(),new Set(),usageCounts(S.blocks),recentUseMap(S.blocks,5),{randomize:true});
-  if(fruit)ov.fruitName=fruit.name;
+  const currentLunch=getFoodsForDate(b,ds).filter(Boolean);
+  const currentFruit=getFruitForDateEffective(b,ds);
+  const counts=usageCounts(S.blocks);
+  const recent=recentUseMap(S.blocks,6);
+  const used=new Set();
+  const newLunch=[];
+  let dayNewFoodName='';
+
+  currentLunch.forEach(cur=>{
+    if(!cur||!cur.cat)return;
+    const isPendingNew=!!(b.newFood&&cur.name===b.newFood.name&&!isSafe(cur.name));
+    let pool;
+    if(isPendingNew){
+      pool=(S.pendingFoods||[]).filter(f=>{
+        if(b.type==='allergen') return f.allergen===true;
+        return !f.allergen;
+      });
+    }else{
+      pool=(S.safeFoods||[]);
+    }
+    const alt=pickDayAlternative(pool,cur,used,counts,recent)||cur;
+    used.add(alt.name);
+    if(isPendingNew)dayNewFoodName=alt.name;
+    newLunch.push(enrichFood(alt));
+  });
+
+  let newFruit=null;
+  if(currentFruit){
+    const isPendingFruit=!!(b.newFood&&currentFruit.name===b.newFood.name&&b.newFood.cat==='fruta'&&!isSafe(currentFruit.name));
+    let pool;
+    if(isPendingFruit){
+      pool=(S.pendingFoods||[]).filter(f=>f.cat==='fruta' && (b.type==='allergen'?f.allergen===true:!f.allergen));
+    }else{
+      pool=safeFruits();
+    }
+    newFruit=pickDayAlternative(pool,currentFruit,used,counts,recent)||currentFruit;
+    if(isPendingFruit)dayNewFoodName=newFruit.name;
+  }
+
+  if(!newLunch.length&&!newFruit){alert('No se pudo generar una alternativa para este día.');return;}
+  ov.removedNames=[...new Set([...(ov.removedNames||[]),...currentLunch.map(f=>f.name)])];
+  ov.extraFoods=dedupe(newLunch);
+  if(newFruit)ov.fruitName=newFruit.name;
+  if(dayNewFoodName)ov.dayNewFoodName=dayNewFoodName; else delete ov.dayNewFoodName;
   setDayOverride(ds,ov);
   save(); renderCalendario(); renderPlan(); openDayModal(ds);
 }
