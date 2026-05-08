@@ -1,7 +1,7 @@
-console.log('BabyFood editable v2 cargada');
+console.log('BabyFood editable v20 cargada');
 'use strict';
-const STORAGE_KEY='bf_editable_v1';
-const OLD_KEYS=[];
+const STORAGE_KEY='bf_editable_v10';
+const OLD_KEYS=['bf_editable_v8','bf_editable_v6','bf_editable_v5','bf_editable_v3'];
 const CAT_ICON={verdura:'🥦',cereal:'🌾',proteina:'🍗',fruta:'🍎'};
 const CAT_LABEL={verdura:'Verduras, hortalizas y tubérculos',cereal:'Cereales',proteina:'Proteínas',fruta:'Frutas'};
 const MONTHS=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -98,7 +98,7 @@ const INITIAL_STATE={
  reactions:[],
  reactionHistory:[],dairyUnlocked9:false,dairyUnlocked12:false,dairyPromptSeen9:false,dairyPromptSeen12:false
 };
-let S=deepClone(INITIAL_STATE); let calViewDate=new Date(); let lastReportText='';
+let S=deepClone(INITIAL_STATE); let calViewDate=new Date(); let lastReportText=''; let BLOCK_SWAP=null; let DAY_SWAP=null; let DAY_ADD=null; let NOTES_OPEN=false; let GENERATION_JITTER=0;
 function deepClone(o){return JSON.parse(JSON.stringify(o));}
 function today(){return fmtDate(new Date());}
 function fmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -137,7 +137,7 @@ function allFoods(){return dedupe([...S.safeFoods,...S.pendingFoods,...S.dairyFo
 function allSelectableFoods(){return dedupe([...S.safeFoods,...S.pendingFoods].filter(f=>!isReaction(f.name)));}
 function findBlockForDate(ds){return S.blocks.find(x=>x&&x.startDate<=ds&&x.endDate>=ds)||null;}
 function getDayOverride(ds){S.dayOverrides=S.dayOverrides||{}; return S.dayOverrides[ds]||{};}
-function setDayOverride(ds,ov){S.dayOverrides=S.dayOverrides||{}; const clean={...ov}; if(!clean.deleted&&!clean.noEat&&!clean.fruitName&&!(clean.extraFoods||[]).length&&!(clean.removedNames||[]).length){delete S.dayOverrides[ds];}else{S.dayOverrides[ds]=clean;}}
+function setDayOverride(ds,ov){S.dayOverrides=S.dayOverrides||{}; const clean={...ov}; if(!clean.deleted&&!clean.noEat&&!clean.fruitName&&!(clean.extraFoods||[]).length&&!(clean.removedNames||[]).length&&!clean.dayNewFoodName){delete S.dayOverrides[ds];}else{S.dayOverrides[ds]=clean;}}
 function isDayDeleted(ds){const ov=getDayOverride(ds); return !!(ov.deleted||ov.noEat);}
 function getFoodsForDate(b,ds){
   if(!b||isDayDeleted(ds))return [];
@@ -183,10 +183,11 @@ function addReactionRecord(food,source='manual',date=today()){food=enrichFood(fo
 function resolveReaction(n){let changed=false; (S.reactionHistory||[]).forEach(r=>{if(r.name===n&&r.status==='active'){r.status='resolved'; r.resolvedDate=today(); changed=true;}}); if(isReaction(n)){S.reactions=S.reactions.filter(r=>r.name!==n); changed=true;} return changed;}
 function showReactionInfo(n){const r=activeReactionInfo(n) || (S.reactionHistory||[]).slice().reverse().find(x=>x.name===n); if(!r){alert('No hay reacción registrada para este alimento.');return;} document.getElementById('block-detail-title').textContent='🚫 Reacción registrada'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red"><b>${escapeHtml(r.name)}</b></div><div style="font-size:13px;line-height:1.7;color:var(--text2)"><b>Fecha:</b> ${escapeHtml(formatShortDate(r.date))}<br><b>Estado:</b> ${r.status==='active'?'Activa':'Resuelta'}${r.resolvedDate?`<br><b>Resuelta:</b> ${escapeHtml(formatShortDate(r.resolvedDate))}`:''}</div>`; openModal('modal-block-detail');}
 function openReactionHistory(){const rows=(S.reactionHistory||[]).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date))); document.getElementById('block-detail-title').textContent='📜 Historial de reacciones'; document.getElementById('block-detail-content').innerHTML=rows.length?rows.map(r=>`<div class="food-row"><div><div class="food-name">${escapeHtml(r.name)} <span class="badge ${r.status==='active'?'b-reaction':'b-gray'}">${r.status==='active'?'Activa':'Resuelta'}</span></div><div class="food-meta">${escapeHtml(formatShortDate(r.date))}${r.resolvedDate?' · resuelta '+escapeHtml(formatShortDate(r.resolvedDate)):''}</div></div></div>`).join(''):'<div class="empty">Sin historial de reacciones</div>'; openModal('modal-block-detail');}
-function showScreen(name){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
-function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden';}
-function closeModal(id){document.getElementById(id).classList.remove('open'); document.body.style.overflow='';}
+function showScreen(name){BLOCK_SWAP=null;DAY_SWAP=null;DAY_ADD=null;document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));document.getElementById('screen-'+name).classList.add('active');document.getElementById('nav-'+name).classList.add('active');document.getElementById('main-scroll').scrollTop=0; if(name==='alimentos')renderAlimentos(); if(name==='plan')renderPlan(); if(name==='calendario')renderCalendario(); if(name==='guia')renderGuia(); if(name==='ajustes')renderAjustes();}
+function openModal(id){if(id==='modal-add-reaction')populateReactionFoodSelect(); if(id==='modal-add-allergen')populateAllergenPresetSelect(); if(id==='modal-setup-plan')preparePlanModal(); const el=document.getElementById(id); if(!el)return; el.classList.add('open'); document.body.style.overflow='hidden'; if(!history.state||history.state.modal!==id){try{history.pushState({modal:id},'',location.href);}catch(e){}}}
+function closeModal(id){BLOCK_SWAP=null;DAY_SWAP=null;DAY_ADD=null;const el=document.getElementById(id); if(el)el.classList.remove('open'); document.body.style.overflow='';}
 document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
+window.addEventListener('popstate',()=>{document.querySelectorAll('.modal-overlay.open').forEach(el=>closeModal(el.id));});
 function renderStatsAlimentos(){document.getElementById('stats-alimentos').innerHTML=`<div class="stat"><div class="stat-n" style="color:var(--green)">${S.safeFoods.length}</div><div class="stat-l">Seguros</div></div><div class="stat"><div class="stat-n" style="color:var(--blue)">${S.pendingFoods.length}</div><div class="stat-l">Pendientes</div></div><div class="stat"><div class="stat-n" style="color:var(--amber)">${allAllergenFoods().length}</div><div class="stat-l">Alérgenos</div></div><div class="stat"><div class="stat-n" style="color:var(--red)">${S.reactions.length}</div><div class="stat-l">Reacciones</div></div>`;}
 function renderFoodGroups(items){
   items=sortFoodsAZ(items);
@@ -336,8 +337,8 @@ function choiceScore(f,counts={},recent={},opts={}){f=enrichFood(f); if(!f||!f.n
   if(opts.preferHydrating&&f.hydrating)score-=6;
   if(opts.sameCatPenalty)score+=opts.sameCatPenalty;
   return score;}
-function pickBalanced(arr, used=new Set(), counts={}, recent={}, opts={}){let list=dedupe(arr).filter(f=>f&&f.name&&!used.has(f.name)); if(!list.length)return null; const avoid=opts.avoidNames||new Set(); let preferred=list.filter(f=>!avoid.has(f.name)); if(preferred.length)list=preferred; list.sort((a,b)=>choiceScore(a,counts,recent,opts)-choiceScore(b,counts,recent,opts)||a.name.localeCompare(b.name,'es')); return list[0];}
-function pickNewFood(arr, usedNew=new Set(), counts={}, recent={}){arr=dedupe(arr).filter(f=>f&&f.name&&!usedNew.has(f.name)); if(!arr.length)return null; arr.sort((a,b)=>{const ca=counts[a.cat]||0, cb=counts[b.cat]||0; if(ca!==cb)return ca-cb; const sa=choiceScore(a,{},recent,{preferIron:true}); const sb=choiceScore(b,{},recent,{preferIron:true}); if(sa!==sb)return sa-sb; return a.name.localeCompare(b.name,'es');}); return arr[0];}
+function pickBalanced(arr, used=new Set(), counts={}, recent={}, opts={}){let list=dedupe(arr).filter(f=>f&&f.name&&!used.has(f.name)); if(!list.length)return null; const avoid=opts.avoidNames||new Set(); let preferred=list.filter(f=>!avoid.has(f.name)); if(preferred.length)list=preferred; const jitter=(opts.randomize?8:0)+(GENERATION_JITTER||0); list=list.map(f=>({f,score:choiceScore(f,counts,recent,opts)+(jitter?Math.random()*jitter:0)})); list.sort((a,b)=>a.score-b.score||a.f.name.localeCompare(b.f.name,'es')); return list[0].f;}
+function pickNewFood(arr, usedNew=new Set(), counts={}, recent={}){arr=dedupe(arr).filter(f=>f&&f.name&&!usedNew.has(f.name)); if(!arr.length)return null; arr.sort((a,b)=>{const ca=counts[a.cat]||0, cb=counts[b.cat]||0; if(ca!==cb)return ca-cb; const sa=choiceScore(a,{},recent,{preferIron:true})+((GENERATION_JITTER||0)?Math.random()*GENERATION_JITTER:0); const sb=choiceScore(b,{},recent,{preferIron:true})+((GENERATION_JITTER||0)?Math.random()*GENERATION_JITTER:0); if(sa!==sb)return sa-sb; return a.name.localeCompare(b.name,'es');}); return arr[0];}
 function getSafeByCat(cat){return dedupe(S.safeFoods).filter(f=>f.cat===cat&&passesPlanFilters(f));}
 function safeFruits(){return getSafeByCat('fruta');}
 function getUsedNewFoodsInMonth(startDate){const mb=monthBounds(startDate); return new Set(S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end)).map(b=>b.newFood?.name).filter(Boolean));}
@@ -425,7 +426,7 @@ function generateBlocks(startDate,count=10,endDate=null){
         type='normal';
       }
       // En huecos normales sin alimentos nuevos NO metemos alérgenos extra:
-      // se mantiene bloque normal de mantenimiento para no romper la alternancia.
+      // se mantiene bloque seguro de mantenimiento para no romper la alternancia.
     }
 
     if(!rec){
@@ -497,20 +498,22 @@ function generatePlan(){
   const selected=document.getElementById('plan-start-date').value;
   if(!selected){alert('Elige un mes');return;}
   const mb=monthBounds(selected);
-  const start=mb.start;
-  const existing=S.blocks.filter(b=>!(b.endDate<mb.start||b.startDate>mb.end));
+  const start=selected;
+  const existing=S.blocks.filter(b=>!(b.endDate<start||b.startDate>mb.end));
   const oldBlocks=deepClone(S.blocks);
-  if(existing.length){if(!confirm('Este mes ya tiene plan. ¿Quieres rehacer solo este mes?'))return; S.blocks=S.blocks.filter(b=>b.endDate<mb.start||b.startDate>mb.end);}
-  const count=Math.ceil((daysBetween(mb.start,mb.end)+1)/3);
+  if(existing.length){if(!confirm('Ya hay plan desde esa fecha hasta final de mes. ¿Quieres rehacer solo ese tramo?'))return; S.blocks=S.blocks.filter(b=>b.endDate<start||b.startDate>mb.end);}
+  const count=Math.ceil((daysBetween(start,mb.end)+1)/3);
   const foodSnap=snapshotFoodState();
   let newBlocks=[];
   try{
     virtuallyPromoteIntroducedBefore(start);
+    GENERATION_JITTER=existing.length?22:10;
     newBlocks=generateBlocks(start,count,mb.end);
   }catch(err){
     console.error('Error generando plan',err);
     alert('Error generando plan: '+(err&&err.message?err.message:err));
   }finally{
+    GENERATION_JITTER=0;
     restoreFoodState(foodSnap);
   }
   if(!newBlocks.length){
@@ -563,70 +566,75 @@ function getDailyFruits(b,existing=[]){let pool=safeFruits(); const nf=enrichFoo
  return res.slice(0,3);}
 function fruitForDate(b,ds){const idx=Math.max(0,Math.min(2,daysBetween(b.startDate,ds))); return (Array.isArray(b.dailyFruits)&&b.dailyFruits[idx])||getDailyFruits(b)[idx]||null;}
 function checkBlockCompletions(){const tod=today(); let changed=false; S.blocks.forEach(b=>{if(!b.completed&&b.endDate<tod&&!b.reactionFood&&b.newFood){const n=b.newFood.name; removeEverywhere(n); resolveReaction(n); if(!isSafe(n))S.safeFoods.push(enrichFood(b.newFood)); b.completed=true; changed=true;}}); if(changed)save();}
-function renderCurrentBlockCard(b){const dayNum=daysBetween(b.startDate,today())+1; const fruit=fruitForDate(b,today()); return `<div class="card" style="border:2px solid var(--accent)"><div class="mini-title">📍 Bloque actual — Día ${dayNum} de 3</div><div style="font-size:15px;font-weight:900;margin-bottom:5px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'}</div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:12px">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">🍲 Mediodía</div><div class="block-foods">${(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join('')}${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''}</div><div class="mini-title" style="margin-top:12px">🍎 Fruta de tarde</div><div class="block-foods">${fruit?`<span class="block-food-tag ${b.newFood&&fruit.name===b.newFood.name?'block-food-new':''}">${b.newFood&&fruit.name===b.newFood.name?'✨ ':''}${escapeHtml(fruit.name)}</span>`:'<span class="badge b-gray">Sin fruta segura</span>'}</div>${b.newFood?`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}" style="margin-top:12px;margin-bottom:0">Alimento nuevo: <strong>${escapeHtml(b.newFood.name)}</strong></div>`:''}<button class="btn btn-sm btn-danger" style="margin-top:12px;width:100%" onclick="openReactionForBlock(${b.id})">Registrar reacción</button></div>`;}
-function blockManualSummary(b){
-  const rows=[];
-  dateRangeDays(b.startDate,b.endDate).forEach((ds,idx)=>{
-    const ov=getDayOverride(ds);
-    if(!ov||(!ov.deleted&&!ov.noEat&&!ov.fruitName&&!(ov.extraFoods||[]).length&&!(ov.removedNames||[]).length))return;
-    const bits=[];
-    if(ov.noEat||ov.deleted)bits.push('sin plan');
-    if(ov.fruitName)bits.push('fruta: '+ov.fruitName);
-    if((ov.extraFoods||[]).length)bits.push('+ '+(ov.extraFoods||[]).map(f=>f.name).join(', '));
-    if((ov.removedNames||[]).length)bits.push('− '+(ov.removedNames||[]).join(', '));
-    rows.push(`<span class="block-food-tag b-tag">D${idx+1} editado: ${escapeHtml(bits.join(' · '))}</span>`);
-  });
-  if(!rows.length && !b.manualNewFood)return '';
-  const lock=b.manualNewFood&&b.newFood?`<span class="block-food-tag b-tag">🔒 nuevo manual: ${escapeHtml(b.newFood.name)}</span>`:'';
-  return `<span style="flex-basis:100%;height:0"></span>${lock}${rows.join('')}`;
+function renderCurrentBlockCard(b){const dayNum=daysBetween(b.startDate,today())+1; const fruit=fruitForDate(b,today()); return `<div class="card" style="border:2px solid var(--accent)"><div class="mini-title">📍 Bloque actual — Día ${dayNum} de 3</div><div style="font-size:15px;font-weight:900;margin-bottom:5px">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque seguro'}</div><div style="font-size:12px;color:var(--text3);font-weight:800;margin-bottom:12px">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">🍲 Mediodía</div><div class="block-foods">${(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join('')}${b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''}</div><div class="mini-title" style="margin-top:12px">🍎 Fruta de tarde</div><div class="block-foods">${fruit?`<span class="block-food-tag ${b.newFood&&fruit.name===b.newFood.name?'block-food-new':''}">${b.newFood&&fruit.name===b.newFood.name?'✨ ':''}${escapeHtml(fruit.name)}</span>`:'<span class="badge b-gray">Sin fruta segura</span>'}</div>${b.newFood?`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}" style="margin-top:12px;margin-bottom:0">Alimento nuevo: <strong>${escapeHtml(b.newFood.name)}</strong></div>`:''}</div>`;}
+function blockManualSummary(b){return ''; }
+function blockSwapInlineHtml(b,role,idx,current){
+  if(!BLOCK_SWAP||BLOCK_SWAP.id!==b.id||BLOCK_SWAP.role!==role||BLOCK_SWAP.idx!==idx)return '';
+  const candidates=blockSwapCandidates(b,role,idx);
+  if(!candidates.length)return `<div class="block-swap-inline"><span class="food-meta">No hay sustitutos compatibles</span></div>`;
+  return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();applyBlockFoodSwap(${b.id},'${role}',${idx},${escapeAttr(jsStr(f.name))})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
 }
-function foodTagsForBlock(b){const lunch=(b.foods||[]).filter(Boolean).map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join(''); const nf=b.newFood&&b.newFood.cat!=='fruta'?`<span class="block-food-tag block-food-new">✨ ${escapeHtml(b.newFood.name)}</span>`:''; const fruits=getDailyFruits(b).map((f,i)=>`<span class="block-food-tag ${b.newFood&&f.name===b.newFood.name?'block-food-new':''}">D${i+1}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}</span>`).join(''); return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}${blockManualSummary(b)}`;}
-function renderPlan(){checkBlockCompletions(); const el=document.getElementById('plan-content'); if(!S.blocks.length){el.innerHTML=`<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:900;margin-bottom:6px">Sin plan generado</div><div style="font-size:13px;color:var(--text3);margin-bottom:8px">${ageText()}</div><button class="btn btn-primary btn-full" onclick="openModal('modal-setup-plan')">Generar plan mensual</button></div>${renderShoppingList()}`;return;} const tod=today(); const cur=S.blocks.find(b=>b.startDate<=tod&&b.endDate>=tod); let html=cur?renderCurrentBlockCard(cur):''; html+=renderMilestone(); html+=renderShoppingList(); html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div class="section-title" style="margin:0">Todos los bloques</div><button class="btn btn-sm btn-primary" onclick="openModal('modal-setup-plan')">Generar / rehacer mes</button></div>`; S.blocks.forEach(b=>{const isPast=b.endDate<tod,isCur=b.startDate<=tod&&b.endDate>=tod; html+=`<div class="block-card ${b.type==='allergen'?'block-allergen':'block-normal'}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.75':''}"><div class="block-title">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'} ${isPast?'<span class="badge b-gray">Completado</span>':isCur?'<span class="badge b-safe">Actual</span>':''}</div><div class="block-dates">📅 ${formatDateRange(b.startDate,b.endDate)}</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${escapeHtml(b.reactionFood)}</span></div>`:''}</div>`;}); el.innerHTML=html;}
+function blockFoodTagHtml(b,f,role,idx,extraClass=''){
+  if(!f)return '';
+  const label=role==='fruit'?`Día ${parseDate(addDays(b.startDate,idx)).getDate()}: 🍎 ${b.newFood&&f.name===b.newFood.name?'✨ ':''}${escapeHtml(f.name)}`:`${role==='new'?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
+  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass}" onclick="event.stopPropagation();openBlockFoodSwap(${b.id},'${role}',${idx})">${label}</button>${blockSwapInlineHtml(b,role,idx,f)}</span>`;
+}
+function foodTagsForBlock(b){
+  const lunch=(b.foods||[]).filter(Boolean).map((f,i)=>blockFoodTagHtml(b,f,'food',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('');
+  const nf=b.newFood&&b.newFood.cat!=='fruta'?blockFoodTagHtml(b,b.newFood,'new',0,'block-food-new'):'';
+  const fruits=(Array.isArray(b.dailyFruits)&&b.dailyFruits.length?b.dailyFruits:getDailyFruits(b)).map((f,i)=>blockFoodTagHtml(b,f,'fruit',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('');
+  return `${lunch}${nf}<span style="flex-basis:100%;height:0"></span>${fruits}${blockManualSummary(b)}`;
+}
+function renderPlan(){checkBlockCompletions(); const el=document.getElementById('plan-content'); if(!S.blocks.length){el.innerHTML=`${renderShoppingList()}<div class="card" style="text-align:center;padding:24px"><div style="font-size:40px;margin-bottom:12px">📋</div><div style="font-size:16px;font-weight:900;margin-bottom:6px">Sin plan generado</div><div style="font-size:13px;color:var(--text3);margin-bottom:8px">${ageText()}</div><button class="btn btn-primary btn-full" onclick="openModal('modal-setup-plan')">Generar plan mensual</button></div>`;return;} const tod=today(); let html=renderShoppingList(); html+=renderMilestone(); html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px"><div class="section-title" style="margin:0">Todos los bloques</div><button class="btn btn-sm btn-primary" onclick="openModal('modal-setup-plan')">Generar / rehacer mes</button></div>`; S.blocks.forEach(b=>{const isPast=b.endDate<tod,isCur=b.startDate<=tod&&b.endDate>=tod; html+=`<div class="block-card ${b.type==='allergen'?'block-allergen':'block-normal'}" onclick="openBlockDetail(${b.id})" style="${isPast?'opacity:.75':''}"><div class="block-title">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque seguro'} ${isPast?'<span class="badge b-gray">Completado</span>':isCur?'<span class="badge b-safe">Actual</span>':''}</div><div class="block-dates">📅 ${formatDateRange(b.startDate,b.endDate)}</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div style="margin-top:8px"><span class="badge b-reaction">Reacción: ${escapeHtml(b.reactionFood)}</span></div>`:''}</div>`;}); el.innerHTML=html;}
 function renderMilestone(){return pendingAllergens().length?'':`<div class="card"><div class="card-title">🏁 Alérgenos completados</div><div class="info-box info-green">Has pasado por toda la lista de alérgenos pendientes. A partir de ahora el plan continuará con bloques normales.</div></div>`;}
 function openBlockDetail(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
-  document.getElementById('block-detail-title').textContent=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal';
-  const candidates=b.type==='allergen'?orderAllergens(pendingAllergens()):normalPendingFoods();
-  document.getElementById('block-detail-content').innerHTML=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div><div class="mini-title">Alimentos del bloque</div><div class="block-foods">${foodTagsForBlock(b)}</div>${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
-  <div class="divider"></div><div class="section-title">✏️ Editar bloque</div>
-  <button class="btn btn-full" onclick="remakeBlock(${b.id})">Rehacer solo este bloque</button>
-  <div class="field"><div class="field-label">Cambiar alimento nuevo</div><select id="edit-block-new"><option value="">Selecciona...</option>${candidates.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="changeBlockNewFood(${b.id})">Guardar alimento nuevo</button>
-  <button class="btn btn-full" onclick="regenerateFromDateManual('${b.startDate}')">Regenerar desde este bloque</button>
-  <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>
-  <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
+  const title=b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque seguro';
+  document.getElementById('block-detail-title').innerHTML='';
+  document.getElementById('block-detail-content').innerHTML=`<div class="block-title-line"><div class="modal-title">${title}</div><div class="block-title-actions"><button class="btn btn-sm dice-random-btn" title="Generar bloque aleatorio" aria-label="Generar bloque aleatorio" onclick="randomizeBlockFromHeader(${b.id})"><span class="dice-icon" aria-hidden="true"><span class="die die-back"><span class="pip p1"></span><span class="pip p2"></span></span><span class="die die-six"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span></span></span></button><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar bloque" onclick="saveManualBlock(${b.id})">💾</button></div></div>
+  <div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${formatDateRange(b.startDate,b.endDate)}</div>
+  <div class="mini-title">Alimentos del bloque</div>
+  <div class="block-foods">${foodTagsForBlock(b)}</div>
+  ${b.reactionFood?`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`:''}
+  <div class="divider"></div>
+  <button class="btn btn-full btn-danger" onclick="deleteBlock(${b.id})">Eliminar bloque</button>`;
   openModal('modal-block-detail');
 }
-function openReactionForBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; const foods=dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[]),...getDailyFruits(b)]); document.getElementById('block-detail-title').textContent='🚫 Registrar reacción'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red">¿Con qué alimento hubo reacción?</div><select id="reaction-block-food" style="margin-bottom:12px"><option value="">Selecciona...</option>${foods.map(f=>`<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select><button class="btn btn-full btn-danger" onclick="confirmBlockReaction(${id})">Confirmar reacción</button>`; openModal('modal-block-detail');}
+function openReactionForBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; const foods=dedupe([...(b.foods||[]),...(b.newFood?[b.newFood]:[]),...(Array.isArray(b.dailyFruits)&&b.dailyFruits.length?b.dailyFruits:getDailyFruits(b))]); document.getElementById('block-detail-title').textContent='🚫 Registrar reacción'; document.getElementById('block-detail-content').innerHTML=`<div class="info-box info-red">¿Con qué alimento hubo reacción?</div><select id="reaction-block-food" style="margin-bottom:12px"><option value="">Selecciona...</option>${foods.map(f=>`<option value="${escapeHtml(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select><button class="btn btn-full btn-danger" onclick="confirmBlockReaction(${id})">Confirmar reacción</button>`; openModal('modal-block-detail');}
 function confirmBlockReaction(id){const name=document.getElementById('reaction-block-food').value; if(!name){alert('Selecciona un alimento');return;} const b=S.blocks.find(x=>x.id===id); if(!b)return; const food=allFoods().find(f=>f.name===name)||b.foods.find(f=>f.name===name)||b.newFood||{name,cat:'verdura'}; const reactionDate=(b.startDate<=today()&&b.endDate>=today())?today():b.startDate; b.reactionFood=name; const res=handleReactionAndRebuild(food,'bloque',reactionDate); closeModal('modal-block-detail'); renderPlan(); renderCalendario(); renderAlimentos(); if(res.changed)alert('Reacción registrada. He rehecho el plan futuro desde '+formatShortDate(reactionDate)+' y he mantenido intacto el pasado.');}
 function weekRange(offset=0){const d=parseDate(today()); const day=d.getDay()||7; d.setDate(d.getDate()-day+1+offset*7); const start=fmtDate(d); d.setDate(d.getDate()+6); return {start,end:fmtDate(d)};}
 function setShoppingWeek(delta){S.shoppingWeekOffset=(S.shoppingWeekOffset||0)+delta; save(); renderPlan();}
 function renderShoppingList(){const w=weekRange(S.shoppingWeekOffset||0); const foods=[]; for(let ds=w.start;ds<=w.end;ds=addDays(ds,1)){const b=findBlockForDate(ds); if(b&&!isDayDeleted(ds)){foods.push(...getFoodsForDate(b,ds)); const fr=getFruitForDateEffective(b,ds); if(fr)foods.push(fr);}} const uniq=dedupe(foods); const groups={verdura:[],cereal:[],proteina:[],fruta:[]}; uniq.forEach(f=>(groups[f.cat]||groups.verdura).push(f.name)); let body=''; ['verdura','cereal','proteina','fruta'].forEach(cat=>{if(groups[cat].length)body+=`<div class="cat-header">${CAT_ICON[cat]} <span>${CAT_LABEL[cat]}</span></div><div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:6px">${groups[cat].sort().join(', ')}</div>`;}); if(!body)body='<div class="empty">No hay alimentos programados esta semana</div>'; return `<div class="card"><div class="card-title">🛒 Lista de compra semanal</div><div class="cal-nav" style="margin-bottom:8px"><button class="btn btn-sm" onclick="setShoppingWeek(-1)">← Semana</button><span style="font-size:12px;font-weight:900;color:var(--text2)">${formatDateRange(w.start,w.end)}</span><button class="btn btn-sm" onclick="setShoppingWeek(1)">Semana →</button></div>${body}</div>`;}
-function renderCalendario(){checkBlockCompletions(); const y=calViewDate.getFullYear(),m=calViewDate.getMonth(); document.getElementById('cal-month-label').textContent=MONTHS[m]+' '+y; document.getElementById('cal-headers').innerHTML=DAYS_SHORT.map(d=>`<div class="cal-dh">${d}</div>`).join(''); const first=new Date(y,m,1).getDay(); const offset=first===0?6:first-1; const days=new Date(y,m+1,0).getDate(); let cells=''; for(let i=0;i<offset;i++)cells+='<div class="cal-cell c-empty"></div>'; for(let d=1;d<=days;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const b=findBlockForDate(ds); let cls='cal-cell'; if(ds===today())cls+=' today'; if(ds<today())cls+=' c-past'; if(isDayDeleted(ds))cls+=' c-empty'; else if(b?.reactionFood)cls+=' c-reaction'; else if(b?.type==='allergen')cls+=' c-allergen'; else if(b?.type==='normal')cls+=' c-normal'; const lab=isDayDeleted(ds)?'<div class="ctype">OFF</div>':(b?`<div class="ctype">${b.type==='allergen'?'ALG':'NOR'}</div>`:''); cells+=`<div class="${cls}" onclick="openDayModal('${ds}')"><span class="cnum">${d}</span>${lab}</div>`;} document.getElementById('cal-cells').innerHTML=cells;}
-function changeMonth(dir){calViewDate.setMonth(calViewDate.getMonth()+dir); renderCalendario();}
+function hasReactionOnDate(ds){return (S.reactionHistory||[]).some(r=>r&&r.date===ds&&r.status==='active');}
+function renderCalendario(){checkBlockCompletions(); const y=calViewDate.getFullYear(),m=calViewDate.getMonth(); document.getElementById('cal-month-label').textContent=MONTHS[m]+' '+y; document.getElementById('cal-headers').innerHTML=DAYS_SHORT.map(d=>`<div class="cal-dh">${d}</div>`).join(''); const first=new Date(y,m,1).getDay(); const offset=first===0?6:first-1; const days=new Date(y,m+1,0).getDate(); let cells=''; for(let i=0;i<offset;i++)cells+='<div class="cal-cell c-empty"></div>'; for(let d=1;d<=days;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`; const b=findBlockForDate(ds); let cls='cal-cell'; if(ds===today())cls+=' today'; if(ds<today())cls+=' c-past'; if(isDayDeleted(ds))cls+=' c-empty'; else if(hasReactionOnDate(ds)||b?.reactionFood)cls+=' c-reaction'; else if(b?.type==='allergen')cls+=' c-allergen'; else if(b?.type==='normal')cls+=' c-normal'; const lab=isDayDeleted(ds)?'<div class="ctype">OFF</div>':(hasReactionOnDate(ds)?'<div class="ctype">REAC</div>':(b?`<div class="ctype">${b.type==='allergen'?'ALG':'SEG'}</div>`:'')); cells+=`<div class="${cls}" onclick="openDayModal('${ds}')"><span class="cnum">${d}</span>${lab}</div>`;} document.getElementById('cal-cells').innerHTML=cells;}
+function changeMonth(dir){calViewDate.setMonth(calViewDate.getMonth()+dir); renderCalendario(); if(NOTES_OPEN)renderMonthNotes();}
 function openDayModal(ds){
+  if(DAY_SWAP&&DAY_SWAP.ds!==ds)DAY_SWAP=null;
+  if(DAY_ADD&&DAY_ADD.ds!==ds)DAY_ADD=null;
   const d=parseDate(ds); const b=findBlockForDate(ds); const ov=getDayOverride(ds);
-  document.getElementById('modal-day-title').textContent=`${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-  let html='';
+  document.getElementById('modal-day-title').innerHTML='';
+  let html=`<div class="block-title-line"><div class="modal-title">${d.getDate()} de ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div><div class="block-title-actions day-title-actions"><button class="btn btn-sm dice-random-btn" title="Generar día aleatorio" aria-label="Generar día aleatorio" onclick="randomizeDayFromHeader('${ds}')"><span class="dice-icon" aria-hidden="true"><span class="die die-back"><span class="pip p1"></span><span class="pip p2"></span></span><span class="die die-six"><span class="pip p1"></span><span class="pip p2"></span><span class="pip p3"></span><span class="pip p4"></span><span class="pip p5"></span><span class="pip p6"></span></span></span></button><span class="day-add-wrap"><button class="btn btn-sm day-add-btn" title="Añadir alimento" onclick="event.stopPropagation();openDayAddFood('${ds}')">+</button>${dayAddPopoverHtml(ds)}</span><button class="btn btn-sm btn-primary save-icon-btn" title="Guardar día" onclick="saveDayManual('${ds}')">💾</button></div></div>`;
   if(b&&!isDayDeleted(ds)){
     const fr=getFruitForDateEffective(b,ds);
     const lunch=getFoodsForDate(b,ds);
-    html+=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque normal'} · Día ${daysBetween(b.startDate,ds)+1} de 3</div><div class="mini-title">🍲 Mediodía</div><div class="block-foods">${lunch.map(f=>`<span class="block-food-tag">${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}</span>`).join('')||'<span class="badge b-gray">Sin alimentos</span>'}</div><div class="mini-title" style="margin-top:12px">🍎 Fruta tarde</div><div class="block-foods">${fr?`<span class="block-food-tag ${b.newFood&&fr.name===b.newFood.name?'block-food-new':''}">${b.newFood&&fr.name===b.newFood.name?'✨ ':''}${escapeHtml(fr.name)}</span>`:'Sin fruta'}</div>`;
+    html+=`<div class="info-box ${b.type==='allergen'?'info-amber':'info-blue'}">${b.type==='allergen'?'⚠️ Bloque alérgeno':'🔵 Bloque seguro'} · Día ${daysBetween(b.startDate,ds)+1} de 3</div>
+      <div class="mini-title">🍲 Mediodía</div>
+      <div class="block-foods">${lunch.map((f,i)=>dayFoodTagHtml(ds,b,f,'food',i,(b.newFood&&f.name===b.newFood.name?'block-food-new':''))).join('')||'<span class="badge b-gray">Sin alimentos</span>'}</div>
+      <div class="mini-title" style="margin-top:12px">🍎 Fruta tarde</div>
+      <div class="block-foods">${fr?dayFoodTagHtml(ds,b,fr,'fruit',0,(b.newFood&&fr.name===b.newFood.name?'block-food-new':'')):'<span class="badge b-gray">Sin fruta</span>'}</div>`;
     if(b.reactionFood)html+=`<div class="info-box info-red" style="margin-top:10px">Reacción: <b>${escapeHtml(b.reactionFood)}</b></div>`;
-    const safeNonFruit=sortFoodsAZ(S.safeFoods.filter(f=>f.cat!=='fruta'&&!lunch.some(x=>x.name===f.name)));
-    const removable=lunch;
-    const fruits=sortFoodsAZ(S.safeFoods.filter(f=>f.cat==='fruta'));
-    html+=`<div class="divider"></div><div class="section-title">✏️ Editar día</div>
-      <div class="field"><div class="field-label">Cambiar fruta</div><select id="edit-day-fruit"><option value="">Mantener fruta actual</option>${fruits.map(f=>`<option value="${escapeAttr(f.name)}" ${fr&&fr.name===f.name?'selected':''}>${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="saveDayFruit('${ds}')">Guardar fruta</button>
-      <div class="field"><div class="field-label">Añadir alimento al mediodía</div><select id="edit-day-add"><option value="">Selecciona...</option>${safeNonFruit.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="addFoodToDay('${ds}')">Añadir alimento</button>
-      <div class="field"><div class="field-label">Quitar alimento solo este día</div><select id="edit-day-remove"><option value="">Selecciona...</option>${removable.map(f=>`<option value="${escapeAttr(f.name)}">${escapeHtml(f.name)}</option>`).join('')}</select></div><button class="btn btn-full" onclick="removeFoodFromDay('${ds}')">Quitar alimento</button>
-      <button class="btn btn-full btn-danger" onclick="markNoEatDay('${ds}')">Marcar día como no comió / sin plan</button>
-      <button class="btn btn-full" onclick="regenerateFromDateManual('${ds}')">Regenerar desde este día</button>`;
+    html+=`<div class="divider"></div>
+      <button class="btn btn-full btn-danger" onclick="deleteDay('${ds}')">Eliminar día</button>
+      <button class="btn btn-full btn-danger" style="margin-top:12px" onclick="openReactionForBlock(${b.id})">Registrar reacción</button>`;
   } else if(b&&isDayDeleted(ds)){
-    html+=`<div class="empty">Este día está marcado como sin plan / no comió.</div><button class="btn btn-full btn-primary" onclick="restoreDay('${ds}')">Restaurar día</button><button class="btn btn-full" onclick="regenerateFromDateManual('${ds}')">Regenerar desde este día</button>`;
+    html+=`<div class="empty">Este día está marcado como sin plan / no comió.</div><button class="btn btn-full btn-primary" onclick="restoreDay('${ds}')">Restaurar día</button>`;
   } else {
-    html='<div class="empty">No hay bloque programado para este día</div><button class="btn btn-full btn-primary" onclick="fillBlockAtDate(\''+ds+'\')">Generar bloque aquí</button><button class="btn btn-full" onclick="regenerateFromDateManual(\''+ds+'\')">Generar desde este día</button>';
+    const manualFoods=dedupe(ov.extraFoods||[]);
+    html+=manualFoods.length?`<div class="mini-title">🍲 Alimentos del día</div><div class="block-foods">${manualFoods.map((f,i)=>dayFoodTagHtml(ds,null,f,'manual',i,'')).join('')}</div>`:`<div class="empty">No hay bloque programado para este día</div>`;
+    html+=`<button class="btn btn-full btn-primary" onclick="fillBlockAtDate('${ds}')">Generar bloque aquí</button>`;
   }
-  const note=S.calNotes[ds]||''; html+=`<div class="divider"></div><div class="field-label">Nota del día</div><textarea id="day-note" rows="2" style="resize:none;margin-top:5px;margin-bottom:10px">${escapeHtml(note)}</textarea><button class="btn btn-full btn-primary" onclick="saveNote('${ds}')">Guardar nota</button>`;
+  const note=S.calNotes[ds]||'';
+  html+=`<div class="divider"></div><div class="field-label">Nota del día</div><textarea id="day-note" rows="2" style="resize:none;margin-top:5px;margin-bottom:10px">${escapeHtml(note)}</textarea><button class="btn btn-full btn-primary" onclick="saveNote('${ds}')">Guardar nota</button>`;
   document.getElementById('modal-day-content').innerHTML=html; openModal('modal-day');
 }
 function saveNote(ds){const note=document.getElementById('day-note').value.trim(); if(note)S.calNotes[ds]=note; else delete S.calNotes[ds]; save(); closeModal('modal-day'); renderCalendario();}
@@ -666,10 +674,21 @@ function generateDateReport(){
   });
   reactions.sort((a,b)=>a.localeCompare(b,'es'));
   const fmtCounts=obj=>Object.entries(obj).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'es')).map(([k,v])=>`- ${k}: ${v}`).join('\n')||'- Sin datos';
-  lastReportText=`RESUMEN ${formatShortDate(start)} — ${formatShortDate(end)}\n\nDÍAS ANALIZADOS\n${daysBetween(start,end)+1}\n\nBLOQUES\n- Normales: ${normal}\n- Alérgenos: ${allergen}\n\nALIMENTOS CONSUMIDOS\n${fmtCounts(foodCounts)}\n\nALIMENTOS NUEVOS INTRODUCIDOS\n${newIntro.join('\n')||'- Sin datos'}\n\nALÉRGENOS PROBADOS\n${allergens.join('\n')||'- Sin datos'}\n\nREACCIONES\n${reactions.join('\n')||'- Sin reacciones registradas'}\n\nCATEGORÍAS\n- Verduras/hortalizas/tubérculos: ${catCounts.verdura||0}\n- Cereales: ${catCounts.cereal||0}\n- Proteínas: ${catCounts.proteina||0}\n- Frutas: ${catCounts.fruta||0}\n\nALIMENTOS CON HIERRO\n${fmtCounts(ironCounts)}\n\nALIMENTOS CON LÁTEX\n${fmtCounts(latexCounts)}`;
+  lastReportText=`RESUMEN ${formatShortDate(start)} — ${formatShortDate(end)}\n\nDÍAS ANALIZADOS\n${daysBetween(start,end)+1}\n\nBLOQUES\n- Seguros: ${normal}\n- Alérgenos: ${allergen}\n\nALIMENTOS CONSUMIDOS\n${fmtCounts(foodCounts)}\n\nALIMENTOS NUEVOS INTRODUCIDOS\n${newIntro.join('\n')||'- Sin datos'}\n\nALÉRGENOS PROBADOS\n${allergens.join('\n')||'- Sin datos'}\n\nREACCIONES\n${reactions.join('\n')||'- Sin reacciones registradas'}\n\nCATEGORÍAS\n- Verduras/hortalizas/tubérculos: ${catCounts.verdura||0}\n- Cereales: ${catCounts.cereal||0}\n- Proteínas: ${catCounts.proteina||0}\n- Frutas: ${catCounts.fruta||0}\n\nALIMENTOS CON HIERRO\n${fmtCounts(ironCounts)}\n\nALIMENTOS CON LÁTEX\n${fmtCounts(latexCounts)}`;
   document.getElementById('report-output').innerHTML=`<div class="report-box">${escapeHtml(lastReportText)}</div>`;
 }
 function copyReport(){if(!lastReportText){alert('Genera primero el resumen');return;} navigator.clipboard?.writeText(lastReportText).then(()=>alert('Resumen copiado')).catch(()=>alert('No se pudo copiar automáticamente. Selecciona el texto manualmente.'));}
+function renderMonthNotes(){
+  const y=calViewDate.getFullYear(),m=calViewDate.getMonth();
+  const start=fmtDate(new Date(y,m,1));
+  const end=fmtDate(new Date(y,m+1,0));
+  const rows=Object.entries(S.calNotes||{}).filter(([ds,n])=>ds>=start&&ds<=end&&String(n||'').trim()).sort((a,b)=>a[0].localeCompare(b[0]));
+  const box=document.getElementById('day-detail'); if(!box)return;
+  const body=rows.length?rows.map(([ds,n])=>`<div class="food-row"><div><div class="food-name">${escapeHtml(formatShortDate(ds))}</div><div class="food-meta" style="font-size:13px;color:var(--text2);line-height:1.5;margin-top:4px">${escapeHtml(n)}</div></div></div>`).join(''):'<div class="empty">No hay notas en este mes.</div>';
+  box.innerHTML=`<div class="card"><div class="card-title">📝 Notas de ${escapeHtml(MONTHS[m])}</div>${body}</div>`;
+}
+function toggleMonthNotes(){NOTES_OPEN=!NOTES_OPEN; const box=document.getElementById('day-detail'); if(NOTES_OPEN)renderMonthNotes(); else if(box)box.innerHTML='';}
+
 function renderGuia(){document.getElementById('guia-content').innerHTML=`<div class="card"><div class="card-title">📘 Guía de alimentación complementaria</div>${guide('👶 Antes de los 6 meses','<p>La alimentación principal debe ser leche materna o fórmula infantil.</p><div class="info-box info-amber">Antes de los 6 meses, la alimentación complementaria solo debería iniciarse por indicación del pediatra.</div><ul><li>No iniciar sólidos por decisión propia antes de tiempo.</li><li>No sustituir tomas de leche por comida.</li><li>Si hay indicación médica, seguir la pauta concreta del pediatra.</li></ul>')}${guide('🥣 6–8 meses','<p>Etapa inicial de alimentación complementaria.</p><ul><li>Introducir alimentos poco a poco.</li><li>Probar un alimento nuevo durante varios días.</li><li>Priorizar alimentos ricos en hierro.</li><li>No añadir sal, azúcar ni edulcorantes.</li><li>La leche sigue siendo el alimento principal.</li><li>Respetar hambre y saciedad: no forzar cantidades.</li></ul>')}${guide('🧀 9–11 meses','<ul><li>Yogur natural sin azúcar: desde 9–10 meses.</li><li>Queso tierno: desde 9–10 meses.</li><li>La leche materna o fórmula sigue siendo prioritaria.</li></ul><div class="info-box info-amber">La leche de vaca entera como bebida principal debe esperar hasta los 12 meses.</div>')}${guide('🥛 12 meses o más','<ul><li>Puede introducirse leche de vaca entera.</li><li>Puede ir comiendo cada vez más parecido al resto de la familia.</li><li>Seguir evitando sal y azúcar añadidos.</li><li>Evitar alimentos duros o con riesgo de atragantamiento.</li></ul>')}${guide('⚠️ Alimentos a evitar o vigilar','<p><b>No recomendados:</b></p><ul><li>Sal añadida.</li><li>Azúcar añadido.</li><li>Miel antes de los 12 meses.</li><li>Zumos si puede tomar fruta entera.</li><li>Bollería, galletas, cacao, embutidos y ultraprocesados.</li></ul><p><b>Verduras con nitratos:</b> espinaca, acelga y borraja. En BabyFood se excluyen del pool durante el primer año para evitar riesgos.</p><p><b>Riesgo de atragantamiento:</b> frutos secos enteros, uvas enteras, palomitas, zanahoria cruda, manzana cruda y salchichas en rodajas.</p>')}${guide('🥜 Alérgenos','<ul><li>Introducir de uno en uno.</li><li>Observar varios días antes de introducir otro alimento nuevo.</li><li>Seguir la pauta indicada por el pediatra.</li><li>Si hay reacción, registrar el alimento y consultar con profesionales sanitarios.</li></ul><div class="info-box info-amber">En esta app los alérgenos se trabajan en bloques específicos de 3 días.</div>')}${guide('🏷️ Etiquetas de alimentos','<ul><li><b>Hierro:</b> alimentos interesantes para priorizar en el plan.</li><li><b>Látex:</b> alimentos que conviene tener identificados si existe sensibilidad o alergia relacionada.</li><li><b>Denso:</b> alimentos que pueden compactar la receta si se combinan entre sí.</li><li><b>Agua:</b> alimentos hidratantes que ayudan a equilibrar recetas densas.</li></ul>')}${guide('🚨 Qué hacer en caso de atragantamiento','<p><b>Si el bebé tose o llora:</b></p><ul><li>Está respirando: deja que tosa.</li><li>No metas los dedos en la boca.</li><li>No le des agua.</li></ul><p><b>Si no puede respirar, no tose o se pone morado:</b></p><ul><li>Coloca al bebé boca abajo sobre tu antebrazo, con la cabeza más baja que el cuerpo.</li><li>Da 5 golpes firmes en la espalda, entre los omóplatos.</li><li>Gíralo boca arriba.</li><li>Da 5 compresiones torácicas con dos dedos en el centro del pecho.</li><li>Repite: 5 golpes en espalda → 5 compresiones en pecho.</li></ul><div class="info-box info-red">Si pierde la consciencia: llama al 112 inmediatamente e inicia RCP si sabes realizarla.</div><p><b>Nunca hacer:</b></p><ul><li>No meter dedos a ciegas.</li><li>No sacudir al bebé.</li><li>No darle líquidos.</li></ul>')}${guide('🧠 Consejos generales','<ul><li>El bebé decide cuánto come.</li><li>No obligar, presionar ni premiar con comida.</li><li>Comer siempre sentado y supervisado.</li><li>Evitar pantallas durante la comida.</li><li>Ofrecer variedad, aunque al principio rechace algunos alimentos.</li><li>La exposición repetida ayuda a aceptar nuevos sabores.</li></ul>')}</div>`;}
 function guide(title,content){return `<div class="guide-item"><button class="guide-btn" onclick="toggleGuide(this)">${title}</button><div class="guide-content">${content}</div></div>`;}
 function toggleGuide(btn){const c=btn.nextElementSibling; const open=c.style.display==='block'; document.querySelectorAll('.guide-content').forEach(x=>x.style.display='none'); c.style.display=open?'none':'block';}
@@ -682,32 +701,286 @@ function updateHeader(){document.getElementById('header-chip').textContent=`${S.
 function clearPlanCalendar(){if(!confirm('¿Borrar TODO el plan y calendario? Se mantendrán los alimentos.'))return; if(!confirm('¿Seguro? Esta acción no se puede deshacer.'))return; S.blocks=[]; S.calNotes={}; S.testing=[]; save(); renderPlan(); renderCalendario(); alert('Plan y calendario borrados.');}
 function resetAllData(){if(!confirm('¿Borrar TODOS los datos?'))return; if(!confirm('¿Seguro? Se perderán alimentos, plan y notas.'))return; S=deepClone(INITIAL_STATE); save(); renderAlimentos(); showScreen('alimentos');}
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`babyfood-backup-${today().replace(/-/g,'')}.json`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);}
-function importData(input){const file=input.files[0]; if(!file)return; if(!confirm('¿Importar este archivo? Reemplazará los datos actuales.')){input.value='';return;} const r=new FileReader(); r.onload=e=>{try{S={...deepClone(INITIAL_STATE),...JSON.parse(e.target.result)}; ensureState(); save(); renderAlimentos(); alert('Datos importados');}catch(err){alert('Archivo no válido');} input.value='';}; r.readAsText(file);}
+function importData(input){const file=input.files[0]; if(!file)return; if(!confirm('¿Importar este archivo? Reemplazará los datos actuales.')){input.value='';return;} const r=new FileReader(); r.onload=e=>{try{S={...deepClone(INITIAL_STATE),...JSON.parse(e.target.result)}; ensureState(); save(); updateHeader(); renderAlimentos(); renderPlan(); renderCalendario(); renderAjustes(); alert('Datos importados');}catch(err){alert('Archivo no válido');} input.value='';}; r.readAsText(file);}
 
 // Exponer funciones para onclick en todos los navegadores
+
+
+function daySwapInlineHtml(ds,b,role,idx,current){
+  if(!DAY_SWAP||DAY_SWAP.ds!==ds||DAY_SWAP.role!==role||DAY_SWAP.idx!==idx)return '';
+  const candidates=daySwapCandidates(ds,b,role,idx);
+  if(!candidates.length)return `<div class="block-swap-inline"><span class="food-meta">No hay sustitutos compatibles</span></div>`;
+  return `<div class="block-swap-inline">${candidates.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();applyDayFoodSwap('${ds}','${role}',${idx},${escapeAttr(jsStr(f.name))})">${CAT_ICON[f.cat]||''} ${escapeHtml(f.name)}</button>`).join('')}</div>`;
+}
+function dayAddPopoverHtml(ds){
+  if(!DAY_ADD||DAY_ADD.ds!==ds)return '';
+  const groups=[
+    ['Seguros', sortFoodsAZ(S.safeFoods||[])],
+    ['Pendientes', sortFoodsAZ(S.pendingFoods||[])]
+  ];
+  let html='';
+  groups.forEach(([label,items])=>{
+    const usable=items.filter(f=>f&&f.name&&!isReaction(f.name));
+    if(!usable.length)return;
+    html+=`<div class="day-add-group">${escapeHtml(label)}</div>`;
+    ['verdura','cereal','proteina','fruta'].forEach(cat=>{
+      const arr=usable.filter(f=>f.cat===cat);
+      if(!arr.length)return;
+      html+=`<div class="day-add-cat">${CAT_ICON[cat]||''} ${escapeHtml(CAT_LABEL[cat])}</div>`;
+      html+=arr.map(f=>`<button type="button" class="block-swap-option" onclick="event.stopPropagation();addFoodToDayFromPicker('${ds}',${escapeAttr(jsStr(f.name))})">${escapeHtml(f.name)}</button>`).join('');
+    });
+  });
+  return `<div class="block-swap-inline day-add-popover">${html||'<span class="food-meta">No hay alimentos disponibles</span>'}</div>`;
+}
+function openDayAddFood(ds){
+  DAY_SWAP=null;
+  DAY_ADD=(DAY_ADD&&DAY_ADD.ds===ds)?null:{ds};
+  openDayModal(ds);
+}
+function addFoodToDayFromPicker(ds,name){
+  const f=allSelectableFoods().find(x=>x.name===name);
+  if(!f)return;
+  const ov=getDayOverride(ds);
+  ov.extraFoods=dedupe([...(ov.extraFoods||[]),enrichFood(f)]);
+  DAY_ADD=null;
+  setDayOverride(ds,ov);
+  save(); renderPlan(); renderCalendario(); openDayModal(ds);
+}
+function dayFoodTagHtml(ds,b,f,role,idx,extraClass=''){
+  if(!f)return '';
+  const ov=getDayOverride(ds); const isNew=!!(b&&((b.newFood&&f.name===b.newFood.name)||(ov.dayNewFoodName&&f.name===ov.dayNewFoodName)));
+  const label=role==='fruit'?`🍎 ${isNew?'✨ ':''}${escapeHtml(f.name)}`:`${isNew?'✨ ':''}${CAT_ICON[f.cat]||'🍽'} ${escapeHtml(f.name)}`;
+  const canSwap=!!b;
+  return `<span class="block-food-edit-wrap"><button type="button" class="block-food-tag block-food-edit ${extraClass} ${isNew?'block-food-new':''}" onclick="event.stopPropagation();${canSwap?`openDayFoodSwap('${ds}','${role}',${idx})`:`openDayAddFood('${ds}')`}">${label}</button>${canSwap?daySwapInlineHtml(ds,b,role,idx,f):''}</span>`;
+}
+function daySwapCandidates(ds,b,role,idx){
+  if(!b)return [];
+  let current=null, sourcePool='safeFoods';
+  if(role==='fruit'){
+    current=getFruitForDateEffective(b,ds);
+    const isNewFruit=!!(current&&b.newFood&&current.name===b.newFood.name&&b.newFood.cat==='fruta'&&!isSafe(current.name));
+    sourcePool=isNewFruit?'pendingFoods':'safeFoods';
+  }else{
+    current=getFoodsForDate(b,ds)[idx];
+    const isNewFood=!!(current&&b.newFood&&current.name===b.newFood.name&&!isSafe(current.name));
+    sourcePool=isNewFood?'pendingFoods':(foodPoolNameByFood(current)||'safeFoods');
+  }
+  if(!current||!current.cat)return [];
+  let pool=sourcePool==='pendingFoods'?(S.pendingFoods||[]):sourcePool==='dairyFoods'?(S.dairyFoods||[]):(S.safeFoods||[]);
+  return dedupe(pool).filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+function openDayFoodSwap(ds,role,idx){
+  DAY_ADD=null;
+  DAY_SWAP=(DAY_SWAP&&DAY_SWAP.ds===ds&&DAY_SWAP.role===role&&DAY_SWAP.idx===idx)?null:{ds,role,idx};
+  openDayModal(ds);
+}
+function applyDayFoodSwap(ds,role,idx,name){
+  const b=findBlockForDate(ds); if(!b||!name)return;
+  const candidates=daySwapCandidates(ds,b,role,idx);
+  const f=candidates.find(x=>x.name===name);
+  if(!f){alert('Alimento no compatible.');return;}
+  const ov=getDayOverride(ds);
+  if(role==='fruit'){
+    ov.fruitName=f.name;
+  }else{
+    const current=getFoodsForDate(b,ds)[idx];
+    if(current&&current.name){
+      ov.removedNames=[...new Set([...(ov.removedNames||[]),current.name])];
+      ov.extraFoods=(ov.extraFoods||[]).filter(x=>x&&x.name!==current.name);
+    }
+    ov.extraFoods=dedupe([...(ov.extraFoods||[]),enrichFood(f)]);
+  }
+  DAY_SWAP=null;
+  setDayOverride(ds,ov);
+  save(); renderPlan(); renderCalendario(); openDayModal(ds);
+}
+function closeDaySwapIfOpen(){
+  if(!DAY_SWAP&&!DAY_ADD)return;
+  const ds=(DAY_SWAP&&DAY_SWAP.ds)||(DAY_ADD&&DAY_ADD.ds);
+  DAY_SWAP=null; DAY_ADD=null;
+  if(document.getElementById('modal-day')?.classList.contains('open')) openDayModal(ds);
+}
+
+function saveDayManual(ds){ save(); renderCalendario(); renderPlan(); closeModal('modal-day'); }
+function dayNewMarkerName(ds,b){
+  const ov=getDayOverride(ds);
+  if(ov.dayNewFoodName)return ov.dayNewFoodName;
+  if(b&&b.newFood&&!isSafe(b.newFood.name))return b.newFood.name;
+  return '';
+}
+function isDayNewFood(ds,b,f){
+  if(!b||!f||!f.name)return false;
+  const marker=dayNewMarkerName(ds,b);
+  return !!marker && f.name===marker && isPending(f.name);
+}
+function pendingCandidatesForBlockType(b,cat){
+  return dedupe(S.pendingFoods||[]).filter(f=>{
+    if(!f||f.cat!==cat||isReaction(f.name))return false;
+    if(b&&b.type==='allergen')return !!f.allergen;
+    return !f.allergen;
+  });
+}
+function pickDayAlternative(pool,current,used,counts,recent,avoidNames=new Set()){
+  pool=dedupe(pool||[]).filter(f=>f&&f.name&&current&&f.cat===current.cat&&f.name!==current.name&&!used.has(f.name)&&!isReaction(f.name));
+  if(!pool.length)return null;
+  let preferred=pool.filter(f=>!avoidNames.has(f.name));
+  if(preferred.length)pool=preferred;
+  return pool.map(f=>{
+    let score=0;
+    score+=(counts[f.name]||0)*6;
+    score+=(recent[f.name]||0)*14;
+    if(avoidNames.has(f.name))score+=80;
+    score+=Math.random()*55;
+    return {f,score};
+  }).sort((a,b)=>a.score-b.score||a.f.name.localeCompare(b.f.name,'es'))[0].f;
+}
+function randomizeDayFromHeader(ds){
+  showMiniToast('Generar día aleatorio');
+  const b=findBlockForDate(ds);
+  if(!b){alert('No hay bloque para randomizar este día.');return;}
+  const ov=getDayOverride(ds);
+  const currentLunch=getFoodsForDate(b,ds).filter(Boolean);
+  const currentFruit=getFruitForDateEffective(b,ds);
+  const counts=usageCounts(S.blocks);
+  const recent=recentUseMap(S.blocks,6);
+  const history=Array.isArray(ov.dayRandomHistory)?ov.dayRandomHistory:[];
+  const avoidNames=new Set(history.slice(-18));
+  const used=new Set();
+  const newLunch=[];
+  let dayNewFoodName='';
+  let hadPendingNew=false;
+
+  currentLunch.forEach(cur=>{
+    if(!cur||!cur.cat)return;
+    const isNewSlot=isDayNewFood(ds,b,cur);
+    if(isNewSlot)hadPendingNew=true;
+    const pool=isNewSlot?pendingCandidatesForBlockType(b,cur.cat):(S.safeFoods||[]).filter(f=>f&&f.cat===cur.cat&&!isReaction(f.name));
+    const alt=pickDayAlternative(pool,cur,used,counts,recent,avoidNames)||cur;
+    used.add(alt.name);
+    if(isNewSlot)dayNewFoodName=alt.name;
+    newLunch.push(enrichFood(alt));
+  });
+
+  let newFruit=null;
+  if(currentFruit){
+    const isNewFruit=isDayNewFood(ds,b,currentFruit) || !!(b.newFood&&b.newFood.cat==='fruta'&&currentFruit.name===b.newFood.name&&!isSafe(currentFruit.name));
+    if(isNewFruit)hadPendingNew=true;
+    const pool=isNewFruit?pendingCandidatesForBlockType(b,'fruta'):safeFruits();
+    newFruit=pickDayAlternative(pool,currentFruit,used,counts,recent,avoidNames)||currentFruit;
+    if(isNewFruit)dayNewFoodName=newFruit.name;
+  }
+
+  if(hadPendingNew&&!dayNewFoodName){
+    const marker=dayNewMarkerName(ds,b);
+    const original=(S.pendingFoods||[]).find(f=>f.name===marker)||b.newFood;
+    if(original&&original.cat){
+      const pool=pendingCandidatesForBlockType(b,original.cat);
+      const alt=pickDayAlternative(pool,original,used,counts,recent,avoidNames)||original;
+      if(original.cat==='fruta')newFruit=alt;
+      else {
+        const replaceIdx=newLunch.findIndex(f=>f&&f.cat===original.cat&&!isDayNewFood(ds,b,f));
+        if(replaceIdx>=0)newLunch[replaceIdx]=alt; else newLunch.push(alt);
+      }
+      dayNewFoodName=alt.name;
+    }
+  }
+
+  if(!newLunch.length&&!newFruit){alert('No se pudo generar una alternativa para este día.');return;}
+  const baseNames=dedupe([...(b.foods||[]),...(b.newFood&&b.newFood.cat!=='fruta'?[b.newFood]:[]),...currentLunch]).map(f=>f.name);
+  ov.removedNames=[...new Set([...(ov.removedNames||[]),...baseNames])];
+  ov.extraFoods=dedupe(newLunch);
+  if(newFruit)ov.fruitName=newFruit.name;
+  if(dayNewFoodName)ov.dayNewFoodName=dayNewFoodName; else delete ov.dayNewFoodName;
+  ov.dayRandomHistory=[...history,...newLunch.map(f=>f.name),...(newFruit?[newFruit.name]:[])].slice(-36);
+  setDayOverride(ds,ov);
+  save(); renderCalendario(); renderPlan(); openDayModal(ds);
+}
+function deleteDay(ds){ markNoEatDay(ds); }
 
 function saveDayFruit(ds){const name=document.getElementById('edit-day-fruit')?.value||''; const ov=getDayOverride(ds); if(name)ov.fruitName=name; else delete ov.fruitName; setDayOverride(ds,ov); save(); openDayModal(ds); renderCalendario(); renderPlan();}
 function addFoodToDay(ds){const name=document.getElementById('edit-day-add')?.value||''; if(!name){alert('Selecciona un alimento');return;} const f=S.safeFoods.find(x=>x.name===name); if(!f)return; const ov=getDayOverride(ds); ov.extraFoods=dedupe([...(ov.extraFoods||[]),f]); setDayOverride(ds,ov); save(); openDayModal(ds); renderPlan(); renderCalendario();}
 function removeFoodFromDay(ds){const name=document.getElementById('edit-day-remove')?.value||''; if(!name){alert('Selecciona un alimento');return;} const ov=getDayOverride(ds); ov.removedNames=[...new Set([...(ov.removedNames||[]),name])]; ov.extraFoods=(ov.extraFoods||[]).filter(f=>f.name!==name); setDayOverride(ds,ov); save(); openDayModal(ds); renderPlan(); renderCalendario();}
 function markNoEatDay(ds){if(!confirm('¿Marcar este día como sin plan / no comió?'))return; const ov=getDayOverride(ds); ov.noEat=true; ov.deleted=true; setDayOverride(ds,ov); save(); closeModal('modal-day'); renderCalendario(); renderPlan();}
 function restoreDay(ds){const ov=getDayOverride(ds); delete ov.noEat; delete ov.deleted; setDayOverride(ds,ov); save(); openDayModal(ds); renderCalendario(); renderPlan();}
-function fillBlockAtDate(ds){if(findBlockForDate(ds)){alert('Ese día ya pertenece a un bloque.');return;} const end=addDays(ds,2); const snap=snapshotFoodState(); let nb=[]; try{virtuallyPromoteIntroducedBefore(ds); nb=generateBlocks(ds,1,end);}catch(e){console.error(e); alert('No se pudo generar bloque: '+(e.message||e));}finally{restoreFoodState(snap);} if(!nb.length){alert('No se pudo generar bloque.');return;} S.blocks=[...S.blocks,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-day'); renderCalendario(); renderPlan();}
+function findGapAroundDate(ds){
+  let start=ds,end=ds;
+  while(!findBlockForDate(addDays(start,-1))) {
+    const prev=addDays(start,-1);
+    const sameMonth=parseDate(prev).getMonth()===parseDate(ds).getMonth()&&parseDate(prev).getFullYear()===parseDate(ds).getFullYear();
+    if(!sameMonth)break; start=prev;
+  }
+  while(!findBlockForDate(addDays(end,1))) {
+    const next=addDays(end,1);
+    const sameMonth=parseDate(next).getMonth()===parseDate(ds).getMonth()&&parseDate(next).getFullYear()===parseDate(ds).getFullYear();
+    if(!sameMonth)break; end=next;
+  }
+  return {start,end,days:daysBetween(start,end)+1};
+}
+function fillBlockAtDate(ds){
+  if(findBlockForDate(ds)){alert('Ese día ya pertenece a un bloque.');return;}
+  const gap=findGapAroundDate(ds);
+  if(gap.days<3){alert('No hay 3 días libres consecutivos para generar un bloque completo.');return;}
+  const blocksToMake=Math.floor(gap.days/3);
+  const snap=snapshotFoodState(); let nb=[];
+  try{virtuallyPromoteIntroducedBefore(gap.start); nb=generateBlocks(gap.start,blocksToMake,addDays(gap.start,blocksToMake*3-1));}
+  catch(e){console.error(e); alert('No se pudo generar bloque: '+(e.message||e));}
+  finally{restoreFoodState(snap);}
+  if(!nb.length){alert('No se pudo generar bloque.');return;}
+  S.blocks=[...S.blocks,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); save(); closeModal('modal-day'); renderCalendario(); renderPlan();
+}
 function deleteBlock(id){const b=S.blocks.find(x=>x.id===id); if(!b)return; if(!confirm('¿Eliminar este bloque? Quedará un hueco en el calendario.'))return; S.blocks=S.blocks.filter(x=>x.id!==id); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
+function collectManualFixedFoods(b){
+  const fixed=[];
+  (b.manualFixedFoods||[]).forEach(n=>{const f=(b.foods||[]).find(x=>x&&x.name===n)||S.safeFoods.find(x=>x.name===n); if(f)fixed.push(enrichFood(f));});
+  return dedupe(fixed);
+}
+function applyFixedFoodsToLunch(lunch,fixed){
+  lunch=dedupe(lunch||[]); fixed=dedupe(fixed||[]);
+  fixed.forEach(ff=>{
+    if(lunch.some(x=>x.name===ff.name))return;
+    const idx=lunch.findIndex(x=>x&&x.cat===ff.cat&&!fixed.some(k=>k.name===x.name));
+    if(idx>=0)lunch[idx]=ff;
+    else if(lunch.length<3)lunch.push(ff);
+  });
+  return dedupe(lunch).slice(0,3);
+}
+
+function showMiniToast(text){
+  let el=document.getElementById('mini-toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='mini-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent=text;
+  el.className='mini-toast show';
+  clearTimeout(showMiniToast._t);
+  showMiniToast._t=setTimeout(()=>{el.className='mini-toast';},1150);
+}
+function randomizeBlockFromHeader(id){
+  showMiniToast('Generar bloque aleatorio');
+  remakeBlock(id);
+}
 function remakeBlock(id){
   const b=S.blocks.find(x=>x.id===id); if(!b)return;
-  const msg=b.manualNewFood&&b.newFood?'¿Rehacer este bloque manteniendo el alimento nuevo elegido manualmente?':'¿Rehacer solo este bloque?';
-  if(!confirm(msg))return;
   const old=deepClone(S.blocks); const snap=snapshotFoodState(); let nb=[];
   try{
+    GENERATION_JITTER=28;
+    b.remakeNonce=(b.remakeNonce||0)+1;
+    b.remakeHistory=Array.isArray(b.remakeHistory)?b.remakeHistory:[];
     const base=S.blocks.filter(x=>x.id!==id);
     S.blocks=base;
     virtuallyPromoteIntroducedBefore(b.startDate);
-    const context=[...S.blocks,b]; // incluye el bloque anterior como memoria para evitar repetir exactamente lo mismo
+    const fakeOld={...b,id:Date.now()+Math.random(),startDate:addDays(b.startDate,-3),endDate:addDays(b.startDate,-1)};
+    const historyBlocks=(b.remakeHistory||[]).slice(-6).map((names,hidx)=>({id:Date.now()+hidx+99,startDate:addDays(b.startDate,-6-hidx*3),endDate:addDays(b.startDate,-4-hidx*3),foods:names.map(n=>S.safeFoods.find(f=>f.name===n)).filter(Boolean),dailyFruits:[],newFood:null}));
+    const context=[...S.blocks,...historyBlocks,fakeOld];
+    const fixed=collectManualFixedFoods(b);
     if(b.manualNewFood&&b.newFood){
       const preserved=enrichFood(b.newFood);
-      const lunch=buildLunchFromSafe(context,preserved);
+      let lunch=buildLunchFromSafe(context,preserved);
       if(!lunch)throw new Error('No hay suficientes alimentos seguros para rehacer el bloque manteniendo el alimento nuevo.');
-      const rebuilt={...b, foods:lunch, newFood:preserved, completed:false, reactionFood:null, manualNewFood:true};
+      lunch=applyFixedFoodsToLunch(lunch,fixed);
+      const rebuilt={...b, foods:lunch, newFood:preserved, completed:false, reactionFood:null, manualNewFood:true, manualFixedFoods:fixed.map(f=>f.name), manualSaved:false};
       rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
       nb=[rebuilt];
     }else{
@@ -715,13 +988,94 @@ function remakeBlock(id){
       if(b.newFood)used.add(b.newFood.name);
       const rec=buildRecipe(b.type,context,used)||buildSafeOnlyRecipe(context);
       if(!rec)throw new Error('No se pudo construir una receta alternativa.');
-      const rebuilt={...b, foods:rec.foods, newFood:rec.newFood||null, completed:false, reactionFood:null, manualNewFood:false};
+      let lunch=applyFixedFoodsToLunch(rec.foods,fixed);
+      const rebuilt={...b, foods:lunch, newFood:rec.newFood||null, completed:false, reactionFood:null, manualNewFood:false, manualFixedFoods:fixed.map(f=>f.name), manualSaved:false};
       rebuilt.dailyFruits=getDailyFruits(rebuilt,context);
       nb=[rebuilt];
     }
   }catch(e){console.error(e); alert('No se pudo rehacer el bloque: '+(e.message||e)); S.blocks=old; nb=[];}
-  finally{restoreFoodState(snap);}
-  if(nb.length){S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); closeModal('modal-block-detail'); renderCalendario(); renderPlan();}
+  finally{GENERATION_JITTER=0; restoreFoodState(snap);}
+  if(nb.length){const generatedNames=dedupe([...(nb[0].foods||[]),...(nb[0].newFood?[nb[0].newFood]:[]),...(nb[0].dailyFruits||[])]).map(f=>f.name); nb[0].remakeHistory=[...((b.remakeHistory||[]).slice(-8)),generatedNames]; S.blocks=[...S.blocks.filter(x=>x.id!==id),...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]); save(); renderCalendario(); renderPlan(); openBlockDetail(id);}
+}
+function foodPoolNameByFood(food){
+  if(!food||!food.name)return null;
+  if(S.safeFoods.some(f=>f.name===food.name))return 'safeFoods';
+  if(S.pendingFoods.some(f=>f.name===food.name))return 'pendingFoods';
+  if(S.dairyFoods.some(f=>f.name===food.name))return 'dairyFoods';
+  return null;
+}
+function blockSwapCandidates(b,role,idx){
+  let current=null;
+  let sourcePool='safeFoods';
+
+  if(role==='new'){
+    current=b.newFood;
+    sourcePool='pendingFoods';
+  }else if(role==='fruit'){
+    const ds=addDays(b.startDate,idx);
+    current=fruitForDate(b,ds);
+    const isNewFruit=!!(current&&b.newFood&&current.name===b.newFood.name&&b.newFood.cat==='fruta'&&!isSafe(current.name));
+    sourcePool=isNewFruit?'pendingFoods':'safeFoods';
+  }else{
+    current=(b.foods||[])[idx];
+    sourcePool=foodPoolNameByFood(current)||'safeFoods';
+  }
+
+  if(!current||!current.cat)return [];
+
+  let pool=[];
+  if(sourcePool==='pendingFoods'){
+    // En edición manual, un alimento nuevo debe sustituirse por cualquier alimento de pendientes
+    // de la misma categoría. No limitamos por alérgeno/no alérgeno aquí: la categoría y la lista
+    // de origen son la regla visual y funcional que pidió Patricia.
+    pool=S.pendingFoods||[];
+  }else if(sourcePool==='dairyFoods'){
+    pool=S.dairyFoods||[];
+  }else{
+    pool=S.safeFoods||[];
+  }
+
+  return dedupe(pool)
+    .filter(f=>f&&f.cat===current.cat&&f.name!==current.name&&!isReaction(f.name))
+    .sort((a,b)=>a.name.localeCompare(b.name,'es'));
+}
+function openBlockFoodSwap(id,role,idx){
+  BLOCK_SWAP=(BLOCK_SWAP&&BLOCK_SWAP.id===id&&BLOCK_SWAP.role===role&&BLOCK_SWAP.idx===idx)?null:{id,role,idx};
+  openBlockDetail(id);
+}
+function applyBlockFoodSwap(id,role,idx,name){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  name=name||'';
+  if(!name)return;
+  const candidates=blockSwapCandidates(b,role,idx);
+  const f=candidates.find(x=>x.name===name);
+  if(!f){alert('Alimento no compatible.');return;}
+  if(role==='new'){
+    b.newFood=enrichFood(f); b.manualNewFood=true;
+  }else if(role==='fruit'){
+    b.dailyFruits=Array.isArray(b.dailyFruits)?b.dailyFruits:getDailyFruits(b);
+    b.dailyFruits[idx]=enrichFood(f);
+  }else{
+    b.foods=b.foods||[]; b.foods[idx]=enrichFood(f);
+    b.manualFixedFoods=[...new Set([...(b.manualFixedFoods||[]),f.name])];
+  }
+  b.manualSaved=false;
+  BLOCK_SWAP=null;
+  dateRangeDays(b.startDate,b.endDate).forEach(ds=>delete (S.dayOverrides||{})[ds]);
+  save(); renderPlan(); renderCalendario(); openBlockDetail(id);
+}
+
+function closeBlockSwapIfOpen(){
+  if(!BLOCK_SWAP)return;
+  const id=BLOCK_SWAP.id;
+  BLOCK_SWAP=null;
+  if(document.getElementById('modal-block-detail')?.classList.contains('open')) openBlockDetail(id);
+}
+function saveManualBlock(id){
+  const b=S.blocks.find(x=>x.id===id); if(!b)return;
+  b.manualSaved=true;
+  b.manualFixedFoods=dedupe([...(b.manualFixedFoods||[]).map(n=>({name:n})),...(b.foods||[]).filter(f=>f&&f.name&&b.manualFixedFoods&&b.manualFixedFoods.includes(f.name))]).map(f=>f.name);
+  save(); renderPlan(); renderCalendario(); closeModal('modal-block-detail');
 }
 function changeBlockNewFood(id){
   const b=S.blocks.find(x=>x.id===id); const name=document.getElementById('edit-block-new')?.value||'';
@@ -750,6 +1104,12 @@ function regenerateFromDateManual(ds){
   if(nb.length){S.blocks=[...past,...nb].sort((a,b)=>a.startDate.localeCompare(b.startDate)); Object.keys(S.dayOverrides||{}).forEach(k=>{if(k>=ds)delete S.dayOverrides[k];}); save(); closeModal('modal-day'); closeModal('modal-block-detail'); renderCalendario(); renderPlan(); alert('Plan regenerado desde '+formatShortDate(ds)+'.');}
 }
 
+
+document.addEventListener('click',function(e){
+  if(e.target.closest('.block-food-edit-wrap')||e.target.closest('.day-add-wrap'))return;
+  if(BLOCK_SWAP&&e.target.closest('#modal-block-detail .modal-sheet')) closeBlockSwapIfOpen();
+  if(DAY_SWAP&&e.target.closest('#modal-day .modal-sheet')) closeDaySwapIfOpen();
+});
 Object.assign(window, {
   activateDairy,
   addAllergenToPool,
@@ -762,12 +1122,12 @@ Object.assign(window, {
   clearPlanCalendar,
   closeModal,
   confirmBlockReaction,
-  copyReport,
+  copyReport, toggleMonthNotes, renderMonthNotes,
   exportData,
   generateDateReport,
   generatePlan,
   rebuildFutureAfterReaction,
-  saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
+  saveDayManual, randomizeDayFromHeader, openDayAddFood, addFoodToDayFromPicker, deleteDay, saveDayFruit, addFoodToDay, removeFoodFromDay, markNoEatDay, restoreDay, fillBlockAtDate, deleteBlock, remakeBlock, randomizeBlockFromHeader, openBlockFoodSwap, applyBlockFoodSwap, saveManualBlock, changeBlockNewFood, changeBlockType, regenerateFromDateManual,
   importData,
   markReactionAllergen,
   markReactionFromAny,
@@ -796,7 +1156,8 @@ Object.assign(window, {
   setShoppingWeek,
   showScreen,
   skipBirthDateSetup,
-  toggleGuide
+  toggleGuide,
+  closeBlockSwapIfOpen, openDayFoodSwap, applyDayFoodSwap, closeDaySwapIfOpen
 });
 
 
